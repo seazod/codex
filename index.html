@@ -838,7 +838,8 @@
       powerText.textContent = Math.round(round.engine * 100);
 
       // 失败条件：只在坠毁/落地时结束（失速将转化为下坠过程）
-      const hitGround = sy > world.clientHeight - 12 || round.alt <= 0;
+      // 使用屏幕位置判定接地，避免仅因高度变量接近 0 而提前结束
+      const hitGround = sy > world.clientHeight - 14;
       if (hitGround) {
         endRound();
         return;
