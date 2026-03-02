@@ -19,3 +19,17 @@ python3 plane_game.py
 ```bash
 python3 plane_game.py --demo
 ```
+
+## Web 界面（可操作）
+
+```bash
+pip install flask
+python3 web_app.py
+```
+
+浏览器打开 `http://localhost:8000`，即可：
+
+- 在商店点击按钮升级飞机 / 弹弓
+- 输入发射角度和力度并发射当前关卡
+- 查看金币、关卡、参数和结果提示
+- 一键重置游戏
