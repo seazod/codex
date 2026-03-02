@@ -399,7 +399,7 @@
     <div class="game-world" id="world">
       <div id="horizon" class="horizon city"></div>
       <div class="ground-scroll" id="groundScroll"></div>
-      <div class="hud">距离：<span id="distanceText">0</span> m<br/>速度：<span id="speedText">0</span> m/s</div>
+      <div class="hud">距离：<span id="distanceText">0</span> m<br/>速度：<span id="speedText">0</span> m/s<br/>航向角：<span id="headingText">0</span>°</div>
       <div id="flightPlane" class="flight-plane hidden">
         <div class="flight-fuselage"></div>
         <div class="flight-cockpit"></div>
@@ -417,7 +417,7 @@
         </div>
       </div>
     </div>
-    <div class="tip">操作：按住拖拽弹弓发射；飞行中可滑动或用 WASD 微调姿态（W抬头/S低头/A左调/D右调），实时关注速度，避免失速并注意落地。</div>
+    <div class="tip">操作：按住拖拽弹弓发射；飞行中可滑动或用 WASD 微调姿态（W抬头/S低头/A左调/D右调），关注速度与航向角：下冲会加速，上仰需靠动力对抗重力。</div>
   </section>
 
   <!-- 结算界面 -->
@@ -497,6 +497,7 @@
     const flightProp = document.getElementById("flightProp");
     const distanceText = document.getElementById("distanceText");
     const speedText = document.getElementById("speedText");
+    const headingText = document.getElementById("headingText");
     const horizon = document.getElementById("horizon");
     const groundScroll = document.getElementById("groundScroll");
 
@@ -627,6 +628,7 @@
       launchDot.style.transform = "translateX(-50%) translate(0px,0px)";
       distanceText.textContent = "0.0";
       speedText.textContent = "0.0";
+      headingText.textContent = "0.0";
       horizon.className = "horizon city";
       groundScroll.style.animationDuration = "1s";
       cancelAnimationFrame(round.rafId);
@@ -744,7 +746,7 @@
       const dt = 1 / 60;
       const stats = calcStats();
 
-      // 简化空气动力学模型：升力+空气阻力+重力共同影响速度与高度
+      // 简化空气动力学模型：角度与速度耦合（下冲增速、上仰受重力和推力限制）
       const g = 9.8;
       const mass = 1.2;
       const rho = 1.225;
@@ -759,7 +761,10 @@
       round.pitch = Math.max(-0.55, Math.min(0.58, round.pitch));
 
       round.engine = Math.max(0.22, 1 - (ts - round.startTs) / 36000);
-      const thrustForce = (3.2 + stats.thrust * 26) * round.engine;
+      const thrustBase = (3.2 + stats.thrust * 26) * round.engine;
+      const thrustEfficiency = Math.max(0.45, 1 - round.speed / 58);
+      const climbPenalty = 1 + Math.max(0, Math.sin(round.gamma)) * 0.65;
+      const thrustForce = thrustBase * thrustEfficiency / climbPenalty;
 
       round.aoa = round.pitch - round.gamma;
       round.aoa = Math.max(-0.4, Math.min(0.46, round.aoa));
@@ -810,6 +815,7 @@
 
       distanceText.textContent = round.distance.toFixed(1);
       speedText.textContent = round.speed.toFixed(1);
+      headingText.textContent = (round.gamma * 57.3).toFixed(1);
 
       // 失败条件：只在坠毁/落地时结束（失速将转化为下坠过程）
       const hitGround = sy > world.clientHeight - 12 || round.alt <= 0;
