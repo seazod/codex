@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import argparse
 import math
+import sys
 import tkinter as tk
 from tkinter import messagebox
 from typing import List
@@ -110,6 +112,7 @@ class PlaneGameGUI:
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("小飞机弹弓闯关模拟")
+        self.root.geometry("1000x680")
 
         self.canvas_w = 980
         self.canvas_h = 520
@@ -130,6 +133,8 @@ class PlaneGameGUI:
         self._build_ui()
         self._load_level(0)
         self._render()
+        self.root.lift()
+        self.root.focus_force()
 
     def _create_levels(self) -> List[Level]:
         return [
@@ -186,15 +191,11 @@ class PlaneGameGUI:
             f"关卡: {self.level.level_id}/{len(self.levels)}  金币: {self.coins}  "
             f"x={self.state.x:.1f}m y={self.state.y:.1f}m vx={self.state.vx:.1f}m/s"
         )
-        self.level_hint_var.set(
-            f"目标距离: {self.level.target_distance}m，障碍数量: {len(self.level.obstacles)}"
-        )
+        self.level_hint_var.set(f"目标距离: {self.level.target_distance}m，障碍数量: {len(self.level.obstacles)}")
 
     def world_to_canvas(self, x: float, y: float) -> tuple[float, float]:
         camera_x = max(0.0, self.state.x - 120)
-        sx = (x - camera_x) * 3.0
-        sy = self.canvas_h - y * self.scale_y
-        return sx, sy
+        return (x - camera_x) * 3.0, self.canvas_h - y * self.scale_y
 
     def launch(self) -> None:
         if self.running:
@@ -279,11 +280,8 @@ class PlaneGameGUI:
 
     def _render(self) -> None:
         self.canvas.delete("all")
-
-        # 地面
         self.canvas.create_rectangle(0, self.canvas_h - 2, self.canvas_w, self.canvas_h, fill="#3a8d2f", outline="")
 
-        # 网格
         camera_x = max(0.0, self.state.x - 120)
         for i in range(0, self.canvas_w, 80):
             self.canvas.create_line(i, 0, i, self.canvas_h, fill="#cfe8f8")
@@ -291,7 +289,6 @@ class PlaneGameGUI:
             _, sy = self.world_to_canvas(camera_x, y)
             self.canvas.create_line(0, sy, self.canvas_w, sy, fill="#e7f4fc")
 
-        # 障碍物
         for ob in self.level.obstacles:
             x1, y1 = self.world_to_canvas(ob.x_start, 0)
             x2, y2 = self.world_to_canvas(ob.x_end, ob.clearance_height)
@@ -300,12 +297,10 @@ class PlaneGameGUI:
             self.canvas.create_rectangle(x1, y2, x2, y1, fill="#8b3d2f", outline="#5c251c")
             self.canvas.create_text((x1 + x2) / 2, y2 - 8, text=f"{ob.clearance_height}m", fill="#5c251c")
 
-        # 终点线
         tx, _ = self.world_to_canvas(self.level.target_distance, 0)
         self.canvas.create_line(tx, 0, tx, self.canvas_h, fill="#ff6a00", width=3)
         self.canvas.create_text(tx + 28, 14, text="终点", fill="#ff6a00")
 
-        # 飞机
         px, py = self.world_to_canvas(self.state.x, self.state.y)
         angle = math.atan2(self.state.vy, max(0.01, self.state.vx))
         size = 14
@@ -314,7 +309,6 @@ class PlaneGameGUI:
         right = (px + math.cos(angle - 2.5) * size * 0.8, py - math.sin(angle - 2.5) * size * 0.8)
         self.canvas.create_polygon(nose, left, right, fill="#1f6fff", outline="#0d3d99", width=2)
 
-        # 弹弓区域提示
         sx, sy = self.world_to_canvas(0, 0)
         self.canvas.create_line(sx - 18, sy - 8, sx, sy - 35, fill="#5f3b1f", width=4)
         self.canvas.create_line(sx + 18, sy - 8, sx, sy - 35, fill="#5f3b1f", width=4)
@@ -324,9 +318,44 @@ class PlaneGameGUI:
         self.root.mainloop()
 
 
+def run_demo() -> None:
+    plane = Plane()
+    sling = Slingshot()
+    sim = FlightSimulator(plane)
+    state = FlightState()
+    speed = sling.launch_speed(0.85)
+    angle = math.radians(25)
+    state.vx = speed * math.cos(angle)
+    state.vy = speed * math.sin(angle)
+    print("[demo] 已开始终端模拟（无 GUI）...")
+    for i in range(120):
+        state = sim.step(state, 0.15)
+        if i % 10 == 0:
+            print(f"[demo] t={state.t:4.1f}s x={state.x:6.1f}m y={state.y:5.1f}m")
+        if state.y <= 0:
+            print(f"[demo] 坠地: x={state.x:.1f}m")
+            return
+    print(f"[demo] 结束: x={state.x:.1f}m y={state.y:.1f}m")
+
+
 def main() -> None:
-    app = PlaneGameGUI()
-    app.run()
+    parser = argparse.ArgumentParser(description="小飞机弹弓闯关模拟")
+    parser.add_argument("--demo", action="store_true", help="仅终端演示，不启动图形界面")
+    args = parser.parse_args()
+
+    if args.demo:
+        run_demo()
+        return
+
+    print("正在启动可视化窗口...（若无窗口，请检查是否允许 Python 打开图形界面）")
+    try:
+        app = PlaneGameGUI()
+        app.run()
+    except tk.TclError as exc:
+        print("GUI 启动失败。请检查 macOS 图形权限或 Tk 支持。", file=sys.stderr)
+        print(f"详细错误: {exc}", file=sys.stderr)
+        print("你也可以先运行: python3 plane_game.py --demo", file=sys.stderr)
+        raise
 
 
 if __name__ == "__main__":
