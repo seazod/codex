@@ -1,877 +1,288 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>飞机弹弓模拟小游戏</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Cocos 飞机弹射模拟</title>
   <style>
-    :root {
-      --bg1: #7ed6ff;
-      --bg2: #bff1ff;
-      --panel: rgba(255, 255, 255, 0.88);
-      --ink: #17435f;
-      --accent: #ff9f43;
-      --accent2: #ff6b6b;
-      --ok: #2ecc71;
-      --warn: #f1c40f;
+    html, body, #gameCanvas { margin: 0; padding: 0; width: 100%; height: 100%; background:#87d7ff; overflow: hidden; }
+    #fallback {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: linear-gradient(#7ed6ff,#bff1ff); color:#0f4c6e; font: 16px/1.5 sans-serif; text-align: center; padding: 24px;
     }
-
-    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
-    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: "Segoe UI", "PingFang SC", sans-serif; }
-    body {
-      background: linear-gradient(var(--bg1), var(--bg2));
-      color: var(--ink);
-      touch-action: none;
-    }
-
-    .screen {
-      position: absolute;
-      inset: 0;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 16px;
-      gap: 12px;
-    }
-
-    .screen.active { display: flex; }
-
-    .top-bar {
-      width: min(960px, 100%);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px;
-      border-radius: 12px;
-      background: var(--panel);
-      box-shadow: 0 6px 14px rgba(0,0,0,0.15);
-      font-weight: 700;
-    }
-
-    .panel {
-      width: min(960px, 100%);
-      background: var(--panel);
-      border-radius: 14px;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
-      padding: 14px;
-    }
-
-    .title { font-size: clamp(22px, 4vw, 34px); margin: 6px 0; text-shadow: 0 2px 0 rgba(255,255,255,.7); }
-
-    /* 主界面的飞机 3D 展示区 */
-    .showcase {
-      height: 220px;
-      perspective: 900px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border-radius: 12px;
-      background: linear-gradient(180deg, #d8f7ff, #a5ddff 70%, #5ecf70 70%, #49b95e 100%);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .cloud {
-      position: absolute;
-      background: rgba(255,255,255,0.85);
-      border-radius: 999px;
-      width: 90px;
-      height: 36px;
-      filter: blur(0.4px);
-      animation: cloudMove 12s linear infinite;
-    }
-    .cloud::before, .cloud::after {
-      content: "";
-      position: absolute;
-      background: inherit;
-      border-radius: inherit;
-    }
-    .cloud::before { width: 44px; height: 44px; left: 11px; top: -20px; }
-    .cloud::after { width: 34px; height: 34px; right: 11px; top: -14px; }
-    @keyframes cloudMove {
-      from { transform: translateX(-180px); }
-      to { transform: translateX(calc(100vw + 200px)); }
-    }
-
-    .plane {
-      width: 240px;
-      height: 120px;
-      position: relative;
-      transform-style: preserve-3d;
-      transform: rotateY(-18deg) rotateX(10deg);
-      transition: transform .2s;
-    }
-    .fuselage {
-      position: absolute;
-      width: 160px;
-      height: 30px;
-      background: #ffdf6b;
-      left: 44px;
-      top: 50px;
-      border-radius: 40px 60px 45px 34px;
-      box-shadow: inset -8px -4px 0 rgba(0,0,0,.15);
-    }
-    .nose {
-      position: absolute;
-      width: 42px;
-      height: 42px;
-      background: #ffa94d;
-      border-radius: 50%;
-      left: 12px;
-      top: 44px;
-    }
-    .cockpit {
-      position: absolute;
-      width: 56px;
-      height: 20px;
-      left: 84px;
-      top: 42px;
-      background: #7bdff2;
-      border-radius: 22px 22px 12px 12px;
-      box-shadow: inset -4px -2px 0 rgba(0,0,0,.12);
-    }
-    .wing {
-      position: absolute;
-      width: 120px;
-      height: 22px;
-      border-radius: 60px;
-      top: 44px;
-      transform-origin: 24px center;
-      box-shadow: inset -4px -3px rgba(0,0,0,.15);
-    }
-    .wing.left { left: 66px; transform: rotate(-14deg) translateZ(18px); }
-    .wing.right { left: 66px; top: 62px; transform: rotate(14deg) translateZ(-18px); }
-    .tail {
-      position: absolute;
-      width: 22px;
-      height: 30px;
-      right: 14px;
-      top: 28px;
-      border-radius: 6px 8px 3px 3px;
-      transform: skew(-10deg);
-      box-shadow: inset -3px -2px rgba(0,0,0,.15);
-    }
-    .tail-wing {
-      position: absolute;
-      width: 40px;
-      height: 12px;
-      right: 6px;
-      top: 57px;
-      border-radius: 8px;
-      box-shadow: inset -3px -2px rgba(0,0,0,.15);
-    }
-    .prop {
-      position: absolute;
-      left: 3px;
-      top: 41px;
-      width: 16px;
-      height: 48px;
-      border-radius: 10px;
-      transform-origin: center;
-      animation: spin .2s linear infinite;
-      box-shadow: 0 0 0 2px rgba(0,0,0,.06) inset;
-    }
-    @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg);} }
-
-    .upgrade-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 10px;
-    }
-
-    .upgrade-item {
-      border-radius: 10px;
-      background: #f6fbff;
-      padding: 8px;
-      border: 2px solid #d5ecff;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 14px;
-    }
-
-    button {
-      border: none;
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-weight: 700;
-      cursor: pointer;
-      background: var(--accent);
-      color: white;
-      transition: transform .12s, filter .2s;
-    }
-    button:hover { filter: brightness(1.06); }
-    button:active { transform: translateY(1px) scale(.98); }
-    button:disabled { background: #bdc3c7; cursor: not-allowed; }
-
-    .big-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-
-    /* 游戏场景 */
-    .game-world {
-      position: relative;
-      width: min(960px, 100%);
-      height: min(62vh, 460px);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 8px 18px rgba(0,0,0,.2);
-      background: linear-gradient(180deg, #8cdcff 0%, #bdefff 60%, #7ddf72 60%, #61c75e 100%);
-    }
-
-    .horizon {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 40%;
-      background-size: 120px 100%;
-      opacity: .9;
-    }
-
-    .city { background-image: repeating-linear-gradient(90deg, #4f9ad8 0 20px, #5db3ed 20px 44px, #3d86c0 44px 58px); }
-    .forest { background-image: repeating-linear-gradient(90deg, #2c9d4a 0 24px, #39b65a 24px 40px, #24863e 40px 62px); }
-    .sea { background-image: repeating-linear-gradient(90deg, #2ea9e0 0 20px, #4dc0f0 20px 46px, #1f92cb 46px 72px); }
-
-    .ground-scroll {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 30%;
-      background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.18) 0 8px, rgba(255,255,255,0) 8px 26px);
-      animation: run 1s linear infinite;
-      opacity: .55;
-      pointer-events: none;
-    }
-    @keyframes run { from { background-position-x: 0; } to { background-position-x: -400px; } }
-
-    .slingshot-zone {
-      position: absolute;
-      width: 220px;
-      height: 220px;
-      left: 18px;
-      bottom: 18px;
-      border-radius: 50%;
-      border: 3px dashed rgba(255,255,255,.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255,255,255,.1);
-    }
-
-    .slingshot {
-      position: relative;
-      width: 84px;
-      height: 120px;
-    }
-    .slingshot::before, .slingshot::after {
-      content: "";
-      position: absolute;
-      width: 14px;
-      height: 100px;
-      background: #8d5a3a;
-      top: 8px;
-      border-radius: 8px;
-    }
-    .slingshot::before { left: 8px; transform: rotate(8deg); }
-    .slingshot::after { right: 8px; transform: rotate(-8deg); }
-    .band {
-      position: absolute;
-      left: 18px;
-      right: 18px;
-      top: 24px;
-      height: 6px;
-      background: #4b3f33;
-      border-radius: 8px;
-    }
-    .launch-dot {
-      position: absolute;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--accent2);
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      transition: transform .06s;
-    }
-
-    .hud {
-      position: absolute;
-      right: 12px;
-      top: 12px;
-      background: rgba(255,255,255,.86);
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-weight: 700;
-    }
-
-    .flight-plane {
-      position: absolute;
-      left: 220px;
-      top: 55%;
-      width: 112px;
-      height: 52px;
-      transform-origin: center;
-      filter: drop-shadow(-8px 6px 0 rgba(0,0,0,.16));
-      border: 2px solid rgba(255,255,255,.35);
-      border-radius: 14px;
-      background: rgba(255,255,255,0.08);
-    }
-    .flight-fuselage {
-      position: absolute;
-      left: 16px;
-      top: 20px;
-      width: 86px;
-      height: 14px;
-      border-radius: 10px 18px 18px 10px;
-      background: #ffd166;
-    }
-    .flight-cockpit {
-      position: absolute;
-      left: 62px;
-      top: 12px;
-      width: 24px;
-      height: 10px;
-      border-radius: 8px 8px 4px 4px;
-      background: #7bdff2;
-    }
-    .flight-wing-main,
-    .flight-wing-sub,
-    .flight-tail,
-    .flight-tail-wing,
-    .flight-prop {
-      position: absolute;
-      border-radius: 12px;
-    }
-    .flight-wing-main { left: 34px; top: 18px; width: 38px; height: 20px; background: #4cc9f0; transform: skew(-10deg); }
-    .flight-wing-sub { left: 34px; top: 27px; width: 38px; height: 7px; background: #3fb4d8; transform: skew(-10deg); }
-    .flight-tail { left: 12px; top: 8px; width: 9px; height: 16px; background: #6c5ce7; }
-    .flight-tail-wing { left: 10px; top: 24px; width: 16px; height: 6px; background: #6c5ce7; }
-    .flight-prop { left: 98px; top: 10px; width: 8px; height: 32px; background: #adb5bd; animation: spin .12s linear infinite; }
-
-    .tip {
-      width: min(960px,100%);
-      text-align: center;
-      font-size: 14px;
-      color: #0f4c6e;
-      font-weight: 600;
-    }
-
-    .stats { font-size: 18px; font-weight: 800; text-align: center; }
-    .hidden { display: none; }
   </style>
+  <!-- Cocos2d-html5（Cocos 引擎） -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/cocos2d-html5/3.17/cocos2d-js.min.js"></script>
 </head>
 <body>
-  <!-- 主界面 -->
-  <section id="mainScreen" class="screen active">
-    <h1 class="title">✈️ 飞机弹弓高手</h1>
-    <div class="top-bar">
-      <div>金币：<span id="goldText">0</span> 🪙</div>
-      <div>历史最远：<span id="bestText">0</span> m</div>
-    </div>
+<div id="fallback">Cocos 引擎加载失败，请检查网络后重试。</div>
+<canvas id="gameCanvas"></canvas>
+<script>
+(function () {
+  if (!window.cc) {
+    document.getElementById('fallback').style.display = 'flex';
+    return;
+  }
 
-    <div class="panel showcase">
-      <div class="cloud" style="top:22px; left:-80px; animation-delay:0s"></div>
-      <div class="cloud" style="top:64px; left:-220px; animation-delay:-5s"></div>
-      <div id="showcasePlane" class="plane">
-        <div class="nose"></div>
-        <div class="fuselage"></div>
-        <div class="cockpit"></div>
-        <div id="wingLeft" class="wing left"></div>
-        <div id="wingRight" class="wing right"></div>
-        <div id="tail" class="tail"></div>
-        <div id="tailWing" class="tail-wing"></div>
-        <div id="prop" class="prop"></div>
-      </div>
-    </div>
+  const KEY = 'plane_sling_save_cocos_v1';
+  const PARTS = ['leftWing', 'rightWing', 'tail', 'propeller', 'slingshot'];
+  const PART_NAMES = { leftWing:'左翼', rightWing:'右翼', tail:'尾翼', propeller:'螺旋桨', slingshot:'弹弓' };
 
-    <div class="panel">
-      <h3>升级机体（每 5 级解锁新外观）</h3>
-      <div id="upgradeGrid" class="upgrade-grid"></div>
-    </div>
+  const state = {
+    gold: 120,
+    best: 0,
+    levels: { leftWing:0, rightWing:0, tail:0, propeller:0, slingshot:0 }
+  };
 
-    <div class="big-btns">
-      <button id="startBtn">开始飞行</button>
-      <button id="resetBtn" style="background:#7f8c8d">重置存档</button>
-    </div>
-  </section>
+  function load() {
+    try {
+      const v = JSON.parse(localStorage.getItem(KEY) || '{}');
+      state.gold = v.gold ?? state.gold;
+      state.best = v.best ?? state.best;
+      state.levels = Object.assign({}, state.levels, v.levels || {});
+    } catch (e) {}
+  }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
-  <!-- 游戏界面 -->
-  <section id="gameScreen" class="screen">
-    <h2 class="title">发射并飞得更远！</h2>
-    <div class="game-world" id="world">
-      <div id="horizon" class="horizon city"></div>
-      <div class="ground-scroll" id="groundScroll"></div>
-      <div class="hud">距离：<span id="distanceText">0</span> m<br/>速度：<span id="speedText">0</span> m/s<br/>航向角：<span id="headingText">0</span>°<br/>区域：<span id="stageText">城市</span> | 动力：<span id="powerText">100</span>%</div>
-      <div id="flightPlane" class="flight-plane hidden">
-        <div class="flight-fuselage"></div>
-        <div class="flight-cockpit"></div>
-        <div id="flightWingMain" class="flight-wing-main"></div>
-        <div id="flightWingSub" class="flight-wing-sub"></div>
-        <div id="flightTail" class="flight-tail"></div>
-        <div id="flightTailWing" class="flight-tail-wing"></div>
-        <div id="flightProp" class="flight-prop"></div>
-      </div>
+  function levelCost(k){ const lv = state.levels[k]; const base={leftWing:30,rightWing:30,tail:45,propeller:55,slingshot:60}[k]; return Math.floor(base*(1+lv*0.45)); }
 
-      <div class="slingshot-zone" id="slingshotZone">
-        <div class="slingshot">
-          <div class="band"></div>
-          <div class="launch-dot" id="launchDot"></div>
-        </div>
-      </div>
-    </div>
-    <div class="tip">操作：按住拖拽弹弓发射；飞行中可滑动或用 WASD 微调姿态（W抬头/S低头/A左调/D右调），关注速度与航向角：下冲会加速，上仰需靠动力对抗重力。</div>
-  </section>
+  function makePlaneNode(scale=1) {
+    const n = new cc.Node();
+    const d = new cc.DrawNode();
+    // 侧视飞机：尾翼在左、机头与螺旋桨在右
+    d.drawRect(cc.p(-60*scale, -8*scale), cc.p(46*scale, 8*scale), cc.color(255,210,90,255), 0, cc.color(0,0,0,0));
+    d.drawDot(cc.p(50*scale,0), 8*scale, cc.color(255,160,80,255));
+    d.drawRect(cc.p(-10*scale,-16*scale), cc.p(16*scale,4*scale), cc.color(80,190,230,255), 0, cc.color(0,0,0,0));
+    d.drawRect(cc.p(-20*scale,-3*scale), cc.p(8*scale,13*scale), cc.color(110,90,230,255), 0, cc.color(0,0,0,0));
+    d.drawRect(cc.p(-62*scale,-2*scale), cc.p(-50*scale,14*scale), cc.color(110,90,230,255), 0, cc.color(0,0,0,0));
+    d.drawRect(cc.p(-6*scale,-22*scale), cc.p(28*scale,-6*scale), cc.color(70,210,240,255), 0, cc.color(0,0,0,0));
+    n.addChild(d);
 
-  <!-- 结算界面 -->
-  <section id="resultScreen" class="screen">
-    <h2 class="title">本局结算</h2>
-    <div class="panel stats">
-      <p>本次距离：<span id="resultDistance">0</span> m</p>
-      <p>历史最远：<span id="resultBest">0</span> m</p>
-      <p>获得金币：<span id="resultGold">0</span> 🪙</p>
-      <p>奖励加成：<span id="resultBonus">0</span> 🪙</p>
-    </div>
-    <div class="big-btns">
-      <button id="backBtn">返回主界面</button>
-      <button id="againBtn">再来一局</button>
-    </div>
-  </section>
+    const prop = new cc.DrawNode();
+    prop.drawRect(cc.p(-2*scale,-14*scale), cc.p(2*scale,14*scale), cc.color(170,180,190,255), 0, cc.color(0,0,0,0));
+    prop.setPosition(58*scale,0);
+    n.addChild(prop);
+    prop.runAction(cc.repeatForever(cc.rotateBy(0.08, 180)));
 
-  <script>
-    // ====== 数据与存档 ======
-    const STORAGE_KEY = "plane_sling_save_v1";
-    const PARTS = [
-      { key: "leftWing", name: "左翼", baseCost: 30, effect: "lift" },
-      { key: "rightWing", name: "右翼", baseCost: 30, effect: "lift" },
-      { key: "tail", name: "尾翼", baseCost: 45, effect: "stability" },
-      { key: "propeller", name: "螺旋桨", baseCost: 55, effect: "thrust" },
-      { key: "slingshot", name: "弹弓", baseCost: 60, effect: "launch" }
-    ];
+    n.__wing = d;
+    n.__prop = prop;
+    return n;
+  }
 
-    const state = {
-      gold: 120,
-      bestDistance: 0,
-      levels: {
-        leftWing: 0,
-        rightWing: 0,
-        tail: 0,
-        propeller: 0,
-        slingshot: 0
-      }
-    };
+  function applyAppearance(node) {
+    // 这里可按等级切换色板，示意用：螺旋桨等级改变透明度表达升级感
+    node.__prop.setOpacity(160 + Math.min(95, state.levels.propeller * 12));
+  }
 
-    function load() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw);
-        state.gold = parsed.gold ?? state.gold;
-        state.bestDistance = parsed.bestDistance ?? state.bestDistance;
-        state.levels = { ...state.levels, ...(parsed.levels || {}) };
-      } catch (_) {}
-    }
-    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  const MainLayer = cc.LayerColor.extend({
+    ctor(){
+      this._super(cc.color(170,230,255,255));
+      const size = cc.winSize;
+      const title = new cc.LabelTTF('✈️ Cocos 飞机弹射高手', 'Arial', 36); title.setPosition(size.width/2, size.height-50); this.addChild(title);
+      this.goldLabel = new cc.LabelTTF('', 'Arial', 24); this.goldLabel.setAnchorPoint(0,0.5); this.goldLabel.setPosition(20,size.height-90); this.addChild(this.goldLabel);
+      this.bestLabel = new cc.LabelTTF('', 'Arial', 24); this.bestLabel.setAnchorPoint(1,0.5); this.bestLabel.setPosition(size.width-20,size.height-90); this.addChild(this.bestLabel);
 
-    // ====== DOM 引用 ======
-    const screens = {
-      main: document.getElementById("mainScreen"),
-      game: document.getElementById("gameScreen"),
-      result: document.getElementById("resultScreen")
-    };
+      this.plane = makePlaneNode(1.6); this.plane.setPosition(size.width/2, size.height*0.66); this.addChild(this.plane);
 
-    const goldText = document.getElementById("goldText");
-    const bestText = document.getElementById("bestText");
-    const upgradeGrid = document.getElementById("upgradeGrid");
-    const showcasePlane = document.getElementById("showcasePlane");
-    const wingLeft = document.getElementById("wingLeft");
-    const wingRight = document.getElementById("wingRight");
-    const tailEl = document.getElementById("tail");
-    const tailWingEl = document.getElementById("tailWing");
-    const propEl = document.getElementById("prop");
-
-    const world = document.getElementById("world");
-    const launchDot = document.getElementById("launchDot");
-    const slingshotZone = document.getElementById("slingshotZone");
-    const flightPlane = document.getElementById("flightPlane");
-    const flightWingMain = document.getElementById("flightWingMain");
-    const flightWingSub = document.getElementById("flightWingSub");
-    const flightTail = document.getElementById("flightTail");
-    const flightTailWing = document.getElementById("flightTailWing");
-    const flightProp = document.getElementById("flightProp");
-    const distanceText = document.getElementById("distanceText");
-    const speedText = document.getElementById("speedText");
-    const headingText = document.getElementById("headingText");
-    const stageText = document.getElementById("stageText");
-    const powerText = document.getElementById("powerText");
-    const horizon = document.getElementById("horizon");
-    const groundScroll = document.getElementById("groundScroll");
-
-    const resultDistance = document.getElementById("resultDistance");
-    const resultBest = document.getElementById("resultBest");
-    const resultGold = document.getElementById("resultGold");
-    const resultBonus = document.getElementById("resultBonus");
-
-    document.getElementById("startBtn").addEventListener("click", () => switchScreen("game"));
-    document.getElementById("backBtn").addEventListener("click", () => switchScreen("main"));
-    document.getElementById("againBtn").addEventListener("click", () => switchScreen("game"));
-
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      localStorage.removeItem(STORAGE_KEY);
-      location.reload();
-    });
-
-    function switchScreen(name) {
-      Object.values(screens).forEach(s => s.classList.remove("active"));
-      screens[name].classList.add("active");
-      if (name === "game") startRound();
-      if (name === "main") renderMain();
-    }
-
-    // ====== 升级系统 ======
-    function getCost(partKey) {
-      const part = PARTS.find(p => p.key === partKey);
-      const lv = state.levels[partKey];
-      return Math.floor(part.baseCost * (1 + lv * 0.45));
-    }
-
-    function upgrade(partKey) {
-      const cost = getCost(partKey);
-      if (state.gold < cost) return;
-      state.gold -= cost;
-      state.levels[partKey] += 1;
-      save();
-      renderMain();
-    }
-
-    function appearanceColor(level, palette) {
-      const tier = Math.floor(level / 5);
-      return palette[tier % palette.length];
-    }
-
-    function applyAppearance() {
-      const leftColor = appearanceColor(state.levels.leftWing, ["#4cc9f0", "#8ac926", "#f72585", "#ff7f50"]);
-      const rightColor = appearanceColor(state.levels.rightWing, ["#4cc9f0", "#8ac926", "#f72585", "#ff7f50"]);
-      const tailColor = appearanceColor(state.levels.tail, ["#6c5ce7", "#ffd166", "#06d6a0", "#ff595e"]);
-      const propColor = appearanceColor(state.levels.propeller, ["#adb5bd", "#ffd43b", "#74c0fc", "#fab005"]);
-      wingLeft.style.background = leftColor;
-      wingRight.style.background = rightColor;
-      tailEl.style.background = tailColor;
-      tailWingEl.style.background = tailColor;
-      propEl.style.background = propColor;
-      flightWingMain.style.background = leftColor;
-      flightWingSub.style.background = rightColor;
-      flightTail.style.background = tailColor;
-      flightTailWing.style.background = tailColor;
-      flightProp.style.background = propColor;
-      showcasePlane.style.transform = `rotateY(-18deg) rotateX(10deg) rotateZ(${Math.sin(Date.now()/450)*2}deg)`;
-    }
-
-    function renderMain() {
-      goldText.textContent = state.gold;
-      bestText.textContent = state.bestDistance.toFixed(1);
-      upgradeGrid.innerHTML = "";
-      PARTS.forEach(part => {
-        const lv = state.levels[part.key];
-        const cost = getCost(part.key);
-        const item = document.createElement("div");
-        item.className = "upgrade-item";
-        item.innerHTML = `
-          <strong>${part.name} Lv.${lv}</strong>
-          <div>效果：${part.effect === "lift" ? "增加升力" : part.effect === "stability" ? "提升稳定性" : part.effect === "thrust" ? "增强推进" : "提高初速度"}</div>
-          <div>下一级：${cost} 金币</div>
-          <button ${state.gold < cost ? "disabled" : ""}>升级</button>
-        `;
-        item.querySelector("button").addEventListener("click", () => upgrade(part.key));
-        upgradeGrid.appendChild(item);
+      let y = size.height*0.42;
+      this.buttons = [];
+      PARTS.forEach((k)=>{
+        const item = new cc.LabelTTF('', 'Arial', 22); item.setAnchorPoint(0,0.5); item.setPosition(30,y); this.addChild(item);
+        const btn = new ccui.Button();
+        btn.setTitleText('升级'); btn.setTitleFontSize(20); btn.setScale9Enabled(true); btn.setContentSize(cc.size(120,42));
+        btn.setPosition(size.width-90,y); this.addChild(btn);
+        btn.addClickEventListener(()=>{
+          const c = levelCost(k); if (state.gold < c) return;
+          state.gold -= c; state.levels[k] += 1; save(); this.refresh();
+        });
+        this.buttons.push({k,item,btn});
+        y -= 54;
       });
-      applyAppearance();
-    }
 
-    // ====== 飞行逻辑 ======
-    const round = {
-      launched: false,
-      dragging: false,
-      dragX: 0,
-      dragY: 0,
-      // 物理参数
-      x: 0,
-      alt: 0,
-      speed: 0,
-      gamma: 0,
-      aoa: 0,
-      pitch: 0,
-      // 滑动/键盘控制
-      lastTouchX: 0,
-      lastTouchY: 0,
-      keyPitchInput: 0,
-      engine: 1,
-      stallTimer: 0,
-      // 分数
-      distance: 0,
-      launchQuality: 0,
-      bonus: 0,
-      airtime: 0,
-      startTs: 0,
-      rafId: 0
-    };
+      const start = new ccui.Button();
+      start.setTitleText('开始飞行'); start.setTitleFontSize(24); start.setScale9Enabled(true); start.setContentSize(cc.size(180,56));
+      start.setPosition(size.width/2, 70); this.addChild(start);
+      start.addClickEventListener(()=> cc.director.runScene(new PlayScene()));
 
-    function calcStats() {
-      const liftLv = (state.levels.leftWing + state.levels.rightWing) / 2;
-      return {
-        launchPower: 11 + state.levels.slingshot * 0.95,
-        lift: 0.04 + liftLv * 0.0038,
-        stability: 0.14 + state.levels.tail * 0.016,
-        thrust: 0.1 + state.levels.propeller * 0.026
-      };
-    }
-
-    function resetRound() {
-      Object.assign(round, {
-        launched: false, dragging: false, dragX: 0, dragY: 0,
-        x: 0, alt: 20, speed: 0, gamma: -0.04, aoa: 0.04, pitch: 0,
-        lastTouchX: 0, lastTouchY: 0,
-        keyPitchInput: 0, engine: 1, stallTimer: 0,
-        distance: 0, launchQuality: 0, bonus: 0, airtime: 0, startTs: 0
+      this.refresh();
+      return true;
+    },
+    refresh(){
+      this.goldLabel.setString('金币：'+state.gold);
+      this.bestLabel.setString('历史最远：'+state.best.toFixed(1)+' m');
+      this.buttons.forEach(({k,item,btn})=>{
+        const lv = state.levels[k], c = levelCost(k);
+        item.setString(`${PART_NAMES[k]} Lv.${lv}  费用:${c}`);
+        btn.setEnabled(state.gold>=c);
       });
-      flightPlane.classList.add("hidden");
-      launchDot.style.transform = "translateX(-50%) translate(0px,0px)";
-      distanceText.textContent = "0.0";
-      speedText.textContent = "0.0";
-      headingText.textContent = "0.0";
-      stageText.textContent = "城市";
-      powerText.textContent = "100";
-      horizon.className = "horizon city";
-      groundScroll.style.animationDuration = "1s";
-      cancelAnimationFrame(round.rafId);
+      applyAppearance(this.plane);
     }
+  });
 
-    function startRound() { resetRound(); }
+  const PlayLayer = cc.LayerColor.extend({
+    ctor(){
+      this._super(cc.color(140,220,255,255));
+      this.size = cc.winSize;
+      this.distance = 0; this.alt = 24; this.speed = 8; this.gamma = 0.05; this.pitch = 0.08; this.aoa = 0.03;
+      this.engine = 1; this.stallTimer = 0; this.launchQuality = 0; this.airtime = 0;
+      this.launched = false; this.dragging = false;
 
-    // 发射：拖拽弹弓
-    slingshotZone.addEventListener("pointerdown", (e) => {
-      if (round.launched) return;
-      round.dragging = true;
-      slingshotZone.setPointerCapture(e.pointerId);
-      updateDrag(e);
-    });
+      this.hud = new cc.LabelTTF('距离:0m\n速度:0m/s\n航向:0°', 'Arial', 22);
+      this.hud.setAnchorPoint(1,1); this.hud.setPosition(this.size.width-15, this.size.height-15); this.addChild(this.hud, 3);
 
-    slingshotZone.addEventListener("pointermove", (e) => {
-      if (!round.dragging || round.launched) return;
-      updateDrag(e);
-    });
+      this.stageLabel = new cc.LabelTTF('城市', 'Arial', 22); this.stageLabel.setAnchorPoint(0,1); this.stageLabel.setPosition(15,this.size.height-15); this.addChild(this.stageLabel,3);
 
-    slingshotZone.addEventListener("pointerup", () => {
-      if (!round.dragging || round.launched) return;
-      round.dragging = false;
-      launchFromDrag();
-    });
+      this.ground = new cc.DrawNode();
+      this.ground.drawRect(cc.p(0,0), cc.p(this.size.width, this.size.height*0.22), cc.color(85,190,100,255),0,cc.color());
+      this.addChild(this.ground);
 
-    function updateDrag(e) {
-      const rect = slingshotZone.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      let dx = e.clientX - cx;
-      let dy = e.clientY - cy;
-      const max = 72;
-      const len = Math.hypot(dx, dy);
-      if (len > max) {
-        dx = dx / len * max;
-        dy = dy / len * max;
+      this.plane = makePlaneNode(1.2); applyAppearance(this.plane);
+      this.plane.setPosition(220, this.size.height*0.7); this.plane.setVisible(false); this.addChild(this.plane,2);
+
+      this.slingBase = new cc.DrawNode();
+      this.slingBase.drawCircle(cc.p(130,120), 80, 0, 40, false, 2, cc.color(255,255,255,220));
+      this.addChild(this.slingBase,2);
+
+      this.dragDot = new cc.DrawNode();
+      this.dragDot.drawDot(cc.p(130,120), 10, cc.color(255,90,90,255));
+      this.addChild(this.dragDot,3);
+
+      this.initInput();
+      this.scheduleUpdate();
+      return true;
+    },
+    getSceneParams(d){
+      if (d < 450) return {name:'城市', wind:0.2, dragMul:1.0, updraft:0.03};
+      if (d < 1000) return {name:'森林', wind:-0.18, dragMul:1.08, updraft:0.05};
+      return {name:'海面', wind:0.32, dragMul:1.16, updraft:-0.01};
+    },
+    initInput(){
+      let startP = null;
+      cc.eventManager.addListener({
+        event: cc.EventListener.TOUCH_ONE_BY_ONE,
+        swallowTouches: true,
+        onTouchBegan: (t)=>{
+          const p = t.getLocation();
+          if (!this.launched && cc.pDistance(p, cc.p(130,120)) < 100) { this.dragging = true; startP = p; return true; }
+          if (this.launched) { startP = p; return true; }
+          return false;
+        },
+        onTouchMoved: (t)=>{
+          const p=t.getLocation();
+          if (this.dragging && !this.launched) {
+            let v = cc.pSub(p, cc.p(130,120));
+            const len = cc.pLength(v), max=70;
+            if (len>max) v=cc.pMult(v,max/len);
+            this.dragVec = v;
+            this.dragDot.setPosition(v.x,v.y);
+          } else if (this.launched && startP) {
+            const d = cc.pSub(p,startP);
+            this.pitch = Math.max(-0.6, Math.min(0.62, this.pitch + (-d.y*0.0028 + d.x*0.0007)));
+            startP = p;
+          }
+        },
+        onTouchEnded: ()=>{
+          if (this.dragging && !this.launched) {
+            this.dragging=false;
+            const v=this.dragVec||cc.p(0,0), pull=Math.min(1,cc.pLength(v)/70);
+            const ang=Math.atan2(-v.y,-v.x||-1), power=(11+state.levels.slingshot*0.95)*(0.45+pull*0.85);
+            this.speed=Math.max(8,power*1.05); this.gamma=Math.min(0.66,Math.max(-0.18,Math.sin(ang)*0.6+0.08));
+            this.pitch=this.gamma*1.25; this.aoa=this.pitch-this.gamma; this.launchQuality=pull;
+            this.launched=true; this.startTs=Date.now(); this.plane.setVisible(true); this.dragDot.setPosition(0,0);
+          }
+        }
+      }, this);
+
+      this.keys = {};
+      cc.eventManager.addListener({event: cc.EventListener.KEYBOARD,
+        onKeyPressed:(k)=>this.keys[k]=1, onKeyReleased:(k)=>this.keys[k]=0}, this);
+    },
+    update(dt){
+      if (!this.launched) return;
+      const liftLv = (state.levels.leftWing + state.levels.rightWing)/2;
+      const stats = { lift:0.04 + liftLv*0.0038, stability:0.14+state.levels.tail*0.016, thrust:0.1+state.levels.propeller*0.026 };
+      const g=9.8, mass=1.2, rho=1.225, wingArea=1.0 + (state.levels.leftWing+state.levels.rightWing)*0.03;
+      const scene=this.getSceneParams(this.distance);
+      this.stageLabel.setString(scene.name);
+
+      const wasd=((this.keys[cc.KEY.w]?1:0)-(this.keys[cc.KEY.s]?1:0))+(((this.keys[cc.KEY.a]?1:0)-(this.keys[cc.KEY.d]?1:0))*0.35);
+      this.pitch += wasd*0.014; this.pitch += (-this.pitch)*stats.stability*0.012;
+      this.pitch = Math.max(-0.55,Math.min(0.58,this.pitch));
+
+      this.engine=Math.max(0.22,1-(Date.now()-this.startTs)/36000);
+      const thrustBase=(3.2+stats.thrust*26)*this.engine;
+      const thrustEff=Math.max(0.45,1-this.speed/58);
+      const climbPenalty=1+Math.max(0,Math.sin(this.gamma))*0.65;
+      const thrust=thrustBase*thrustEff/climbPenalty;
+
+      this.aoa=Math.max(-0.4,Math.min(0.46,this.pitch-this.gamma));
+      const stalledNow=this.aoa>0.3 && this.speed<9.5;
+      this.stallTimer=stalledNow?Math.min(2.5,this.stallTimer+dt):Math.max(0,this.stallTimer-dt*2.2);
+      const deepStall=this.stallTimer>0.65;
+      if (deepStall){ this.pitch-=0.02; this.gamma-=0.028; }
+
+      const stallFactor=deepStall?Math.max(0.08,1-this.stallTimer*1.25):1;
+      const cl=(0.22+3.4*this.aoa)*stallFactor;
+      const cd=0.03+0.34*cl*cl+(deepStall?0.12:0);
+      const q=0.5*rho*Math.max(0,this.speed)*Math.max(0,this.speed);
+      const lift=q*wingArea*cl*(0.72+stats.lift*3.6)+scene.updraft*this.speed;
+      const drag=q*wingArea*cd*scene.dragMul;
+
+      const accelAlong=(thrust-drag-mass*g*Math.sin(this.gamma)+scene.wind)/mass;
+      const accelNormal=(lift-mass*g*Math.cos(this.gamma))/Math.max(0.35,mass*this.speed);
+      this.speed=Math.max(1.6,this.speed+accelAlong*dt);
+      this.gamma=Math.max(-1.05,Math.min(0.78,this.gamma+accelNormal*dt));
+
+      const vx=this.speed*Math.cos(this.gamma), vy=this.speed*Math.sin(this.gamma);
+      this.distance=Math.max(0,this.distance+vx*dt*3.2);
+      this.alt += vy*dt*1.8;
+      this.airtime += dt;
+
+      const sy=this.size.height*0.72 - this.alt;
+      const sx=220 + Math.min(420,this.distance*0.2);
+      this.plane.setPosition(sx,sy); this.plane.setRotation(-this.pitch*57.3);
+
+      this.hud.setString(`距离:${this.distance.toFixed(1)} m\n速度:${this.speed.toFixed(1)} m/s\n航向:${(this.gamma*57.3).toFixed(1)}°`);
+
+      if (sy <= this.size.height*0.22 + 6) {
+        this.finish();
       }
-      round.dragX = dx;
-      round.dragY = dy;
-      launchDot.style.transform = `translateX(-50%) translate(${dx}px, ${dy}px)`;
+    },
+    finish(){
+      const base = Math.floor(this.distance/9 + (0.1+state.levels.propeller*0.026)*4);
+      const bonus = Math.floor(this.launchQuality*12) + Math.floor(this.airtime*0.8) + (this.distance>1000?12:this.distance>450?6:0);
+      const gained = base + bonus;
+      state.gold += gained; state.best = Math.max(state.best, this.distance); save();
+      cc.director.runScene(new ResultScene(this.distance, gained, bonus));
     }
+  });
 
-    function launchFromDrag() {
-      const stats = calcStats();
-      const pull = Math.min(1, Math.hypot(round.dragX, round.dragY) / 72);
-      const angle = Math.atan2(-round.dragY, -round.dragX || -1);
-      const power = stats.launchPower * (0.45 + pull * 0.85);
-
-      round.launched = true;
-      round.startTs = performance.now();
-      round.x = 0;
-      round.alt = 24;
-      round.speed = Math.max(8, power * 1.05);
-      round.gamma = Math.min(0.65, Math.max(-0.18, Math.sin(angle) * 0.6 + 0.08));
-      round.pitch = round.gamma * 1.25;
-      round.aoa = round.pitch - round.gamma;
-      round.launchQuality = pull;
-      flightPlane.classList.remove("hidden");
-
-      requestAnimationFrame(loop);
+  const ResultLayer = cc.LayerColor.extend({
+    ctor(distance, gained, bonus){
+      this._super(cc.color(190,240,255,255));
+      const s=cc.winSize;
+      const t = new cc.LabelTTF('本局结算', 'Arial', 40); t.setPosition(s.width/2,s.height-70); this.addChild(t);
+      const c = new cc.LabelTTF(`本次距离: ${distance.toFixed(1)} m\n历史最远: ${state.best.toFixed(1)} m\n获得金币: ${gained} 🪙\n奖励加成: ${bonus} 🪙`, 'Arial', 28);
+      c.setPosition(s.width/2,s.height/2+20); this.addChild(c);
+      const back = new ccui.Button(); back.setTitleText('返回主界面'); back.setTitleFontSize(24); back.setScale9Enabled(true); back.setContentSize(cc.size(220,56));
+      back.setPosition(s.width/2,100); this.addChild(back); back.addClickEventListener(()=>cc.director.runScene(new MainScene()));
+      return true;
     }
+  });
 
-    // 飞行时滑动调姿态（整个 world 区域可滑）
-    world.addEventListener("pointerdown", (e) => {
-      if (!round.launched) return;
-      round.lastTouchX = e.clientX;
-      round.lastTouchY = e.clientY;
-    });
+  const MainScene = cc.Scene.extend({ onEnter(){ this._super(); this.addChild(new MainLayer()); }});
+  const PlayScene = cc.Scene.extend({ onEnter(){ this._super(); this.addChild(new PlayLayer()); }});
+  const ResultScene = function (d,g,b) { return cc.Scene.extend({ onEnter(){ this._super(); this.addChild(new ResultLayer(d,g,b)); }})(); };
 
-    world.addEventListener("pointermove", (e) => {
-      if (!round.launched || !round.lastTouchX) return;
-      const dx = e.clientX - round.lastTouchX;
-      const dy = e.clientY - round.lastTouchY;
-      // 上滑（dy<0）抬头，下滑低头；左右滑也少量影响
-      round.pitch += (-dy * 0.0035) + (dx * 0.0008);
-      round.pitch = Math.max(-0.55, Math.min(0.58, round.pitch));
-      round.lastTouchX = e.clientX;
-      round.lastTouchY = e.clientY;
-    });
-
-    world.addEventListener("pointerup", () => {
-      round.lastTouchX = 0;
-      round.lastTouchY = 0;
-    });
-
-    const pressedKeys = new Set();
-
-    document.addEventListener("keydown", (e) => {
-      const k = e.key.toLowerCase();
-      if (["w", "a", "s", "d"].includes(k)) {
-        pressedKeys.add(k);
-        e.preventDefault();
-      }
-    });
-
-    document.addEventListener("keyup", (e) => {
-      const k = e.key.toLowerCase();
-      if (pressedKeys.has(k)) {
-        pressedKeys.delete(k);
-        e.preventDefault();
-      }
-    });
-
-    function updateSceneByDistance(d) {
-      if (d < 450) {
-        horizon.className = "horizon city";
-      } else if (d < 1000) {
-        horizon.className = "horizon forest";
-      } else {
-        horizon.className = "horizon sea";
-      }
-    }
-
-    function getSceneParams(distance) {
-      if (distance < 450) return { stage: "城市", wind: 0.2, updraft: 0.03, dragMul: 1.0 };
-      if (distance < 1000) return { stage: "森林", wind: -0.28, updraft: 0.05, dragMul: 1.08 };
-      return { stage: "海面", wind: 0.35, updraft: -0.02, dragMul: 1.16 };
-    }
-
-    function loop(ts) {
-      const dt = 1 / 60;
-      const stats = calcStats();
-
-      // 简化空气动力学模型：角度与速度耦合（下冲增速、上仰受重力和推力限制）
-      const g = 9.8;
-      const mass = 1.2;
-      const rho = 1.225;
-      const wingArea = 1.0 + ((state.levels.leftWing + state.levels.rightWing) * 0.03);
-
-      const wasdInput = (pressedKeys.has("w") ? 1 : 0) - (pressedKeys.has("s") ? 1 : 0)
-        + ((pressedKeys.has("a") ? 1 : 0) - (pressedKeys.has("d") ? 1 : 0)) * 0.35;
-      round.keyPitchInput = wasdInput;
-
-      round.pitch += round.keyPitchInput * 0.014;
-      round.pitch += (-round.pitch) * stats.stability * 0.012;
-      round.pitch = Math.max(-0.55, Math.min(0.58, round.pitch));
-
-      round.engine = Math.max(0.22, 1 - (ts - round.startTs) / 36000);
-      const thrustBase = (3.2 + stats.thrust * 26) * round.engine;
-      const thrustEfficiency = Math.max(0.45, 1 - round.speed / 58);
-      const climbPenalty = 1 + Math.max(0, Math.sin(round.gamma)) * 0.65;
-      const thrustForce = thrustBase * thrustEfficiency / climbPenalty;
-
-      round.aoa = round.pitch - round.gamma;
-      round.aoa = Math.max(-0.4, Math.min(0.46, round.aoa));
-
-      const stalledNow = round.aoa > 0.3 && round.speed < 9.5;
-      round.stallTimer = stalledNow ? Math.min(2.5, round.stallTimer + dt) : Math.max(0, round.stallTimer - dt * 2.2);
-      const deepStall = round.stallTimer > 0.65;
-
-      // 失速后升力衰减且机头下沉，不会立刻结束，而是进入坠落态直到接地
-      if (deepStall) {
-        round.pitch -= 0.02;
-        round.gamma -= 0.028;
-      }
-
-      const stallFactor = deepStall ? Math.max(0.08, 1 - round.stallTimer * 1.25) : 1;
-      const cl = (0.22 + 3.4 * round.aoa) * stallFactor;
-      const cd = 0.03 + 0.34 * cl * cl + (deepStall ? 0.12 : 0);
-      const scene = getSceneParams(round.distance);
-      const q = 0.5 * rho * Math.max(0, round.speed) * Math.max(0, round.speed);
-      const lift = q * wingArea * cl * (0.72 + stats.lift * 3.6) + scene.updraft * round.speed;
-      const drag = q * wingArea * cd * scene.dragMul;
-
-      const accelAlong = (thrustForce - drag - mass * g * Math.sin(round.gamma) + scene.wind) / mass;
-      const accelNormal = (lift - mass * g * Math.cos(round.gamma)) / Math.max(0.35, mass * round.speed);
-
-      round.speed = Math.max(1.6, round.speed + accelAlong * dt);
-      round.gamma += accelNormal * dt;
-      round.airtime += dt;
-      round.gamma = Math.max(-1.05, Math.min(0.78, round.gamma));
-
-      const vx = round.speed * Math.cos(round.gamma);
-      const vy = round.speed * Math.sin(round.gamma);
-
-      // 空气阻力和重力已通过 accelAlong/accelNormal 进入速度与航迹角
-      round.x += vx * dt * 3.2;
-      round.alt += vy * dt * 1.8;
-      round.distance = Math.max(0, round.x);
-
-      // 机体渲染位置与倾斜
-      const sx = 220 + Math.min(420, round.x * 0.2);
-      const sy = world.clientHeight * 0.72 - round.alt;
-      flightPlane.style.left = `${sx}px`;
-      flightPlane.style.top = `${sy}px`;
-      flightPlane.style.transform = `rotate(${(round.pitch * 57.3).toFixed(2)}deg)`;
-
-      // 场景变化 + 地面滚动速度
-      updateSceneByDistance(round.distance);
-      const speedScale = Math.max(0.25, 1.2 - Math.min(1, vx / 35));
-      groundScroll.style.animationDuration = `${speedScale.toFixed(2)}s`;
-
-      distanceText.textContent = round.distance.toFixed(1);
-      speedText.textContent = round.speed.toFixed(1);
-      headingText.textContent = (round.gamma * 57.3).toFixed(1);
-      stageText.textContent = scene.stage;
-      powerText.textContent = Math.round(round.engine * 100);
-
-      // 失败条件：只在坠毁/落地时结束（失速将转化为下坠过程）
-      // 使用屏幕位置判定接地，避免仅因高度变量接近 0 而提前结束
-      const hitGround = sy > world.clientHeight - 14;
-      if (hitGround) {
-        endRound();
-        return;
-      }
-
-      round.rafId = requestAnimationFrame(loop);
-    }
-
-    function endRound() {
-      cancelAnimationFrame(round.rafId);
-      const baseGain = Math.floor(round.distance / 9 + calcStats().thrust * 4);
-      const launchBonus = Math.floor(round.launchQuality * 12);
-      const airtimeBonus = Math.floor(round.airtime * 0.8);
-      const stageBonus = round.distance > 1000 ? 12 : round.distance > 450 ? 6 : 0;
-      const bonus = launchBonus + airtimeBonus + stageBonus;
-      const gained = baseGain + bonus;
-      round.bonus = bonus;
-      state.gold += gained;
-      state.bestDistance = Math.max(state.bestDistance, round.distance);
-      save();
-
-      resultDistance.textContent = round.distance.toFixed(1);
-      resultBest.textContent = state.bestDistance.toFixed(1);
-      resultGold.textContent = gained;
-      resultBonus.textContent = round.bonus;
-      switchScreen("result");
-    }
-
-    // 初始化
-    load();
-    renderMain();
-    setInterval(applyAppearance, 300);
-  </script>
+  load();
+  cc.game.onStart = function(){
+    cc.view.adjustViewPort(true);
+    cc.view.setDesignResolutionSize(1280, 720, cc.ResolutionPolicy.SHOW_ALL);
+    cc.view.resizeWithBrowserSize(true);
+    cc.director.runScene(new MainScene());
+  };
+  cc.game.run('gameCanvas');
+})();
+</script>
 </body>
 </html>
