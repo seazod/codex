@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小飞机弹弓闯关（Web版）</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1>小飞机弹弓闯关（Web 可视化）</h1>
+    <div id="hud"></div>
+  </div>
+
+  <div class="controls">
+    <label>发射角度 <input id="angle" type="range" min="10" max="50" value="26" /> <span id="angleVal">26</span>°</label>
+    <label>弹弓力度 <input id="power" type="range" min="10" max="100" value="85" /> <span id="powerVal">85</span>%</label>
+    <label>俯仰控制 <input id="attack" type="range" min="-100" max="100" value="0" /> <span id="attackVal">0</span></label>
+    <button id="launch">发射</button>
+    <button id="upPlane">升级飞机(120)</button>
+    <button id="upSling">升级弹弓(90)</button>
+  </div>
+
+  <canvas id="game" width="1100" height="560"></canvas>
+  <p id="msg"></p>
+
+  <script src="./main.js"></script>
+</body>
+</html>
