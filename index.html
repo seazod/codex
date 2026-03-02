@@ -95,59 +95,78 @@
     }
 
     .plane {
-      width: 180px;
-      height: 64px;
+      width: 240px;
+      height: 120px;
       position: relative;
       transform-style: preserve-3d;
       transform: rotateY(-18deg) rotateX(10deg);
       transition: transform .2s;
     }
-    .body {
+    .fuselage {
       position: absolute;
-      width: 120px;
-      height: 26px;
+      width: 160px;
+      height: 30px;
       background: #ffdf6b;
-      left: 32px;
-      top: 19px;
-      border-radius: 30px 40px 36px 26px;
-      box-shadow: inset -6px -4px 0 rgba(0,0,0,.15);
+      left: 44px;
+      top: 50px;
+      border-radius: 40px 60px 45px 34px;
+      box-shadow: inset -8px -4px 0 rgba(0,0,0,.15);
     }
     .nose {
       position: absolute;
-      width: 34px;
-      height: 34px;
+      width: 42px;
+      height: 42px;
       background: #ffa94d;
       border-radius: 50%;
-      left: 10px;
-      top: 15px;
+      left: 12px;
+      top: 44px;
+    }
+    .cockpit {
+      position: absolute;
+      width: 56px;
+      height: 20px;
+      left: 84px;
+      top: 42px;
+      background: #7bdff2;
+      border-radius: 22px 22px 12px 12px;
+      box-shadow: inset -4px -2px 0 rgba(0,0,0,.12);
     }
     .wing {
       position: absolute;
-      width: 80px;
-      height: 20px;
-      border-radius: 50px;
-      top: 8px;
-      transform-origin: 16px center;
+      width: 120px;
+      height: 22px;
+      border-radius: 60px;
+      top: 44px;
+      transform-origin: 24px center;
       box-shadow: inset -4px -3px rgba(0,0,0,.15);
     }
-    .wing.left { left: 52px; transform: rotate(-18deg) translateZ(16px); }
-    .wing.right { left: 52px; top: 34px; transform: rotate(18deg) translateZ(-16px); }
+    .wing.left { left: 66px; transform: rotate(-14deg) translateZ(18px); }
+    .wing.right { left: 66px; top: 62px; transform: rotate(14deg) translateZ(-18px); }
     .tail {
       position: absolute;
-      width: 26px;
-      height: 20px;
-      right: 8px;
-      top: 3px;
-      border-radius: 6px;
-      transform: rotate(-12deg);
+      width: 22px;
+      height: 30px;
+      right: 14px;
+      top: 28px;
+      border-radius: 6px 8px 3px 3px;
+      transform: skew(-10deg);
+      box-shadow: inset -3px -2px rgba(0,0,0,.15);
+    }
+    .tail-wing {
+      position: absolute;
+      width: 40px;
+      height: 12px;
+      right: 6px;
+      top: 57px;
+      border-radius: 8px;
       box-shadow: inset -3px -2px rgba(0,0,0,.15);
     }
     .prop {
       position: absolute;
-      left: 0;
-      top: 10px;
+      left: 3px;
+      top: 41px;
       width: 16px;
-      height: 40px;
+      height: 48px;
       border-radius: 10px;
       transform-origin: center;
       animation: spin .2s linear infinite;
@@ -287,24 +306,42 @@
       position: absolute;
       left: 220px;
       top: 55%;
-      width: 76px;
-      height: 24px;
-      background: #ffd166;
-      border-radius: 20px;
+      width: 112px;
+      height: 52px;
       transform-origin: center;
-      box-shadow: -8px 6px 0 rgba(0,0,0,.12);
+      filter: drop-shadow(-8px 6px 0 rgba(0,0,0,.16));
     }
-    .flight-plane::before, .flight-plane::after {
-      content: "";
+    .flight-fuselage {
       position: absolute;
-      width: 36px;
-      height: 9px;
-      border-radius: 10px;
-      background: #4cc9f0;
       left: 20px;
+      top: 18px;
+      width: 78px;
+      height: 18px;
+      border-radius: 16px 24px 20px 14px;
+      background: #ffd166;
     }
-    .flight-plane::before { top: -7px; }
-    .flight-plane::after { bottom: -7px; }
+    .flight-cockpit {
+      position: absolute;
+      left: 50px;
+      top: 12px;
+      width: 26px;
+      height: 10px;
+      border-radius: 8px;
+      background: #7bdff2;
+    }
+    .flight-wing-main,
+    .flight-wing-sub,
+    .flight-tail,
+    .flight-tail-wing,
+    .flight-prop {
+      position: absolute;
+      border-radius: 12px;
+    }
+    .flight-wing-main { left: 44px; top: 14px; width: 54px; height: 10px; background: #4cc9f0; transform: rotate(-12deg); }
+    .flight-wing-sub { left: 44px; top: 30px; width: 54px; height: 10px; background: #4cc9f0; transform: rotate(12deg); }
+    .flight-tail { left: 88px; top: 8px; width: 10px; height: 16px; background: #6c5ce7; }
+    .flight-tail-wing { left: 88px; top: 32px; width: 18px; height: 7px; background: #6c5ce7; }
+    .flight-prop { left: 8px; top: 14px; width: 8px; height: 26px; background: #adb5bd; animation: spin .15s linear infinite; }
 
     .tip {
       width: min(960px,100%);
@@ -332,10 +369,12 @@
       <div class="cloud" style="top:64px; left:-220px; animation-delay:-5s"></div>
       <div id="showcasePlane" class="plane">
         <div class="nose"></div>
-        <div class="body"></div>
+        <div class="fuselage"></div>
+        <div class="cockpit"></div>
         <div id="wingLeft" class="wing left"></div>
         <div id="wingRight" class="wing right"></div>
         <div id="tail" class="tail"></div>
+        <div id="tailWing" class="tail-wing"></div>
         <div id="prop" class="prop"></div>
       </div>
     </div>
@@ -358,7 +397,15 @@
       <div id="horizon" class="horizon city"></div>
       <div class="ground-scroll" id="groundScroll"></div>
       <div class="hud">距离：<span id="distanceText">0</span> m</div>
-      <div id="flightPlane" class="flight-plane hidden"></div>
+      <div id="flightPlane" class="flight-plane hidden">
+        <div class="flight-fuselage"></div>
+        <div class="flight-cockpit"></div>
+        <div id="flightWingMain" class="flight-wing-main"></div>
+        <div id="flightWingSub" class="flight-wing-sub"></div>
+        <div id="flightTail" class="flight-tail"></div>
+        <div id="flightTailWing" class="flight-tail-wing"></div>
+        <div id="flightProp" class="flight-prop"></div>
+      </div>
 
       <div class="slingshot-zone" id="slingshotZone">
         <div class="slingshot">
@@ -433,12 +480,18 @@
     const wingLeft = document.getElementById("wingLeft");
     const wingRight = document.getElementById("wingRight");
     const tailEl = document.getElementById("tail");
+    const tailWingEl = document.getElementById("tailWing");
     const propEl = document.getElementById("prop");
 
     const world = document.getElementById("world");
     const launchDot = document.getElementById("launchDot");
     const slingshotZone = document.getElementById("slingshotZone");
     const flightPlane = document.getElementById("flightPlane");
+    const flightWingMain = document.getElementById("flightWingMain");
+    const flightWingSub = document.getElementById("flightWingSub");
+    const flightTail = document.getElementById("flightTail");
+    const flightTailWing = document.getElementById("flightTailWing");
+    const flightProp = document.getElementById("flightProp");
     const distanceText = document.getElementById("distanceText");
     const horizon = document.getElementById("horizon");
     const groundScroll = document.getElementById("groundScroll");
@@ -485,10 +538,20 @@
     }
 
     function applyAppearance() {
-      wingLeft.style.background = appearanceColor(state.levels.leftWing, ["#4cc9f0", "#8ac926", "#f72585", "#ff7f50"]);
-      wingRight.style.background = appearanceColor(state.levels.rightWing, ["#4cc9f0", "#8ac926", "#f72585", "#ff7f50"]);
-      tailEl.style.background = appearanceColor(state.levels.tail, ["#6c5ce7", "#ffd166", "#06d6a0", "#ff595e"]);
-      propEl.style.background = appearanceColor(state.levels.propeller, ["#adb5bd", "#ffd43b", "#74c0fc", "#fab005"]);
+      const leftColor = appearanceColor(state.levels.leftWing, ["#4cc9f0", "#8ac926", "#f72585", "#ff7f50"]);
+      const rightColor = appearanceColor(state.levels.rightWing, ["#4cc9f0", "#8ac926", "#f72585", "#ff7f50"]);
+      const tailColor = appearanceColor(state.levels.tail, ["#6c5ce7", "#ffd166", "#06d6a0", "#ff595e"]);
+      const propColor = appearanceColor(state.levels.propeller, ["#adb5bd", "#ffd43b", "#74c0fc", "#fab005"]);
+      wingLeft.style.background = leftColor;
+      wingRight.style.background = rightColor;
+      tailEl.style.background = tailColor;
+      tailWingEl.style.background = tailColor;
+      propEl.style.background = propColor;
+      flightWingMain.style.background = leftColor;
+      flightWingSub.style.background = rightColor;
+      flightTail.style.background = tailColor;
+      flightTailWing.style.background = tailColor;
+      flightProp.style.background = propColor;
       showcasePlane.style.transform = `rotateY(-18deg) rotateX(10deg) rotateZ(${Math.sin(Date.now()/450)*2}deg)`;
     }
 
@@ -521,9 +584,10 @@
       dragY: 0,
       // 物理参数
       x: 0,
-      y: 0,
-      vx: 0,
-      vy: 0,
+      alt: 0,
+      speed: 0,
+      gamma: 0,
+      aoa: 0,
       pitch: 0,
       // 滑动控制
       lastTouchX: 0,
@@ -547,7 +611,7 @@
     function resetRound() {
       Object.assign(round, {
         launched: false, dragging: false, dragX: 0, dragY: 0,
-        x: 0, y: 0, vx: 0, vy: 0, pitch: -4,
+        x: 0, alt: 20, speed: 0, gamma: -0.04, aoa: 0.04, pitch: 0,
         lastTouchX: 0, lastTouchY: 0,
         distance: 0, startTs: 0
       });
@@ -606,10 +670,11 @@
       round.launched = true;
       round.startTs = performance.now();
       round.x = 0;
-      round.y = 0;
-      round.vx = Math.max(3, Math.cos(angle) * power * 0.7);
-      round.vy = Math.sin(angle) * power * 0.42;
-      round.pitch = -8;
+      round.alt = 24;
+      round.speed = Math.max(8, power * 1.05);
+      round.gamma = Math.min(0.65, Math.max(-0.18, Math.sin(angle) * 0.6 + 0.08));
+      round.pitch = round.gamma * 1.25;
+      round.aoa = round.pitch - round.gamma;
       flightPlane.classList.remove("hidden");
 
       requestAnimationFrame(loop);
@@ -627,8 +692,8 @@
       const dx = e.clientX - round.lastTouchX;
       const dy = e.clientY - round.lastTouchY;
       // 上滑（dy<0）抬头，下滑低头；左右滑也少量影响
-      round.pitch += (-dy * 0.08) + (dx * 0.02);
-      round.pitch = Math.max(-40, Math.min(40, round.pitch));
+      round.pitch += (-dy * 0.0035) + (dx * 0.0008);
+      round.pitch = Math.max(-0.55, Math.min(0.58, round.pitch));
       round.lastTouchX = e.clientX;
       round.lastTouchY = e.clientY;
     });
@@ -652,41 +717,55 @@
       const dt = 1 / 60;
       const stats = calcStats();
 
-      // 稳定性会将角度慢慢拉回，尾翼等级越高越稳
-      round.pitch *= (1 - stats.stability * 0.02);
+      // 简化空气动力学模型：AoA 决定升力与诱导阻力，速度与迎风阻力相关
+      const g = 9.8;
+      const mass = 1.0;
+      const rho = 1.225;
+      const wingArea = 0.95 + ((state.levels.leftWing + state.levels.rightWing) * 0.03);
+      const thrustForce = 6.4 + stats.thrust * 34;
 
-      const gravity = 0.22;
-      const lift = stats.lift * (1 - Math.abs(round.pitch) / 70);
-      const thrust = stats.thrust * (1 - Math.abs(round.pitch) / 80);
-      const drag = 0.993;
+      round.pitch += (-round.pitch) * stats.stability * 0.01;
+      round.aoa = round.pitch - round.gamma;
+      round.aoa = Math.max(-0.35, Math.min(0.42, round.aoa));
 
-      round.vx += thrust;
-      round.vy += gravity * (Math.abs(round.pitch) / 35) - lift;
-      round.vx *= drag;
-      round.vy *= 0.995;
+      const cl = 0.24 + 3.9 * round.aoa;
+      const cd = 0.025 + 0.32 * cl * cl;
+      const q = 0.5 * rho * Math.max(0, round.speed) * Math.max(0, round.speed);
+      const lift = q * wingArea * cl * (0.7 + stats.lift * 4);
+      const drag = q * wingArea * cd;
 
-      round.x += round.vx * dt * 60;
-      round.y += round.vy * dt * 60;
+      const accelAlong = (thrustForce - drag - mass * g * Math.sin(round.gamma)) / mass;
+      const accelNormal = (lift - mass * g * Math.cos(round.gamma)) / Math.max(0.3, mass * round.speed);
+
+      round.speed = Math.max(2.4, round.speed + accelAlong * dt);
+      round.gamma += accelNormal * dt;
+      round.gamma = Math.max(-0.9, Math.min(0.8, round.gamma));
+
+      const vx = round.speed * Math.cos(round.gamma);
+      const vy = round.speed * Math.sin(round.gamma);
+
+      round.x += vx * dt * 3.2;
+      round.alt += vy * dt * 1.8;
       round.distance = Math.max(0, round.x);
 
       // 机体渲染位置与倾斜
       const sx = 220 + Math.min(420, round.x * 0.2);
-      const sy = world.clientHeight * 0.56 + round.y;
+      const sy = world.clientHeight * 0.72 - round.alt;
       flightPlane.style.left = `${sx}px`;
       flightPlane.style.top = `${sy}px`;
-      flightPlane.style.transform = `rotate(${round.pitch}deg)`;
+      flightPlane.style.transform = `rotate(${(round.pitch * 57.3).toFixed(2)}deg)`;
 
       // 场景变化 + 地面滚动速度
       updateSceneByDistance(round.distance);
-      const speedScale = Math.max(0.25, 1.2 - Math.min(1, round.vx / 35));
+      const speedScale = Math.max(0.25, 1.2 - Math.min(1, vx / 35));
       groundScroll.style.animationDuration = `${speedScale.toFixed(2)}s`;
 
       distanceText.textContent = round.distance.toFixed(1);
 
       // 失败条件：失速或落地
-      const stalled = Math.abs(round.pitch) > 32 && Math.abs(round.vx) < 6;
+      const stalled = round.aoa > 0.33 && round.speed < 9.8;
       const hitGround = sy > world.clientHeight - 12;
-      if (stalled || hitGround || round.vx < 0.8) {
+      if (stalled || hitGround || round.speed < 2.6) {
         endRound();
         return;
       }
