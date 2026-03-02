@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Cocos 飞机弹射模拟</title>
+  <style>
+    html, body, #gameCanvas { margin: 0; padding: 0; width: 100%; height: 100%; background:#87d7ff; overflow: hidden; }
+    #fallback {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: linear-gradient(#7ed6ff,#bff1ff); color:#0f4c6e; font: 16px/1.5 sans-serif; text-align: center; padding: 24px;
+    }
+  </style>
+  <!-- Cocos2d-html5（Cocos 引擎） -->
+  <script src="./cocos2d-js.min.js"></script>
+</head>
+<body>
+<div id="fallback">Cocos 引擎加载失败，请检查网络后重试。</div>
+<canvas id="gameCanvas"></canvas>
+<script>
+(function () {
+  if (!window.cc) {
+    document.getElementById('fallback').style.display = 'flex';
+    return;
+  }
+
+  const KEY = 'plane_sling_save_cocos_v1';
+
+  const PROMPTS = {
+    gameTitle: '✈️ Cocos 飞机弹射高手',
+    upgradeBtn: '升级',
+    startBtn: '开始飞行',
+    goldLabel: '金币：',
+    bestLabel: '历史最远：',
+    hudDistance: '距离',
+    hudSpeed: '速度',
+    hudHeading: '航向',
+    stageCity: '城市',
+    stageForest: '森林',
+    stageSea: '海面',
+    resultTitle: '本局结算',
+    resultDistance: '本次距离',
+    resultBest: '历史最远',
+    resultGold: '获得金币',
+    resultBonus: '奖励加成',
+    backMain: '返回主界面',
+    partNames: { leftWing:'左翼', rightWing:'右翼', tail:'尾翼', propeller:'螺旋桨', slingshot:'弹弓' }
+  };
+  const PARTS = ['leftWing', 'rightWing', 'tail', 'propeller', 'slingshot'];
+  const PART_NAMES = PROMPTS.partNames;
+
+  const state = {
+    gold: 120,
+    best: 0,
+    levels: { leftWing:0, rightWing:0, tail:0, propeller:0, slingshot:0 }
+  };
+
+  function load() {
+    try {
+      const v = JSON.parse(localStorage.getItem(KEY) || '{}');
+      state.gold = v.gold ?? state.gold;
+      state.best = v.best ?? state.best;
+      state.levels = Object.assign({}, state.levels, v.levels || {});
+    } catch (e) {}
+  }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+  function levelCost(k){ const lv = state.levels[k]; const base={leftWing:30,rightWing:30,tail:45,propeller:55,slingshot:60}[k]; return Math.floor(base*(1+lv*0.45)); }
+
+  function makePlaneNode(scale=1) {
+    const n = new cc.Node();
+    const d = new cc.DrawNode();
+    // 侧视飞机：尾翼在左、机头与螺旋桨在右
+    d.drawRect(cc.p(-60*scale, -8*scale), cc.p(46*scale, 8*scale), cc.color(255,210,90,255), 0, cc.color(0,0,0,0));
+    d.drawDot(cc.p(50*scale,0), 8*scale, cc.color(255,160,80,255));
+    d.drawRect(cc.p(-10*scale,-16*scale), cc.p(16*scale,4*scale), cc.color(80,190,230,255), 0, cc.color(0,0,0,0));
+    d.drawRect(cc.p(-20*scale,-3*scale), cc.p(8*scale,13*scale), cc.color(110,90,230,255), 0, cc.color(0,0,0,0));
+    d.drawRect(cc.p(-62*scale,-2*scale), cc.p(-50*scale,14*scale), cc.color(110,90,230,255), 0, cc.color(0,0,0,0));
+    d.drawRect(cc.p(-6*scale,-22*scale), cc.p(28*scale,-6*scale), cc.color(70,210,240,255), 0, cc.color(0,0,0,0));
+    n.addChild(d);
+
+    const prop = new cc.DrawNode();
+    prop.drawRect(cc.p(-2*scale,-14*scale), cc.p(2*scale,14*scale), cc.color(170,180,190,255), 0, cc.color(0,0,0,0));
+    prop.setPosition(58*scale,0);
+    n.addChild(prop);
+    prop.runAction(cc.repeatForever(cc.rotateBy(0.08, 180)));
+
+    n.__wing = d;
+    n.__prop = prop;
+    return n;
+  }
+
+  function applyAppearance(node) {
+    // 这里可按等级切换色板，示意用：螺旋桨等级改变透明度表达升级感
+    node.__prop.setOpacity(160 + Math.min(95, state.levels.propeller * 12));
+  }
+
+  const MainLayer = cc.LayerColor.extend({
+    ctor(){
+      this._super(cc.color(170,230,255,255));
+      const size = cc.winSize;
+      const title = new cc.LabelTTF(PROMPTS.gameTitle, 'Arial', 36); title.setPosition(size.width/2, size.height-50); this.addChild(title);
+      this.goldLabel = new cc.LabelTTF('', 'Arial', 24); this.goldLabel.setAnchorPoint(0,0.5); this.goldLabel.setPosition(20,size.height-90); this.addChild(this.goldLabel);
+      this.bestLabel = new cc.LabelTTF('', 'Arial', 24); this.bestLabel.setAnchorPoint(1,0.5); this.bestLabel.setPosition(size.width-20,size.height-90); this.addChild(this.bestLabel);
+
+      this.plane = makePlaneNode(1.6); this.plane.setPosition(size.width/2, size.height*0.66); this.addChild(this.plane);
+
+      let y = size.height*0.42;
+      this.buttons = [];
+      PARTS.forEach((k)=>{
+        const item = new cc.LabelTTF('', 'Arial', 22); item.setAnchorPoint(0,0.5); item.setPosition(30,y); this.addChild(item);
+        const btn = new ccui.Button();
+        btn.setTitleText(PROMPTS.upgradeBtn); btn.setTitleFontSize(20); btn.setScale9Enabled(true); btn.setContentSize(cc.size(120,42));
+        btn.setPosition(size.width-90,y); this.addChild(btn);
+        btn.addClickEventListener(()=>{
+          const c = levelCost(k); if (state.gold < c) return;
+          state.gold -= c; state.levels[k] += 1; save(); this.refresh();
+        });
+        this.buttons.push({k,item,btn});
+        y -= 54;
+      });
+
+      const start = new ccui.Button();
+      start.setTitleText(PROMPTS.startBtn); start.setTitleFontSize(24); start.setScale9Enabled(true); start.setContentSize(cc.size(180,56));
+      start.setPosition(size.width/2, 70); this.addChild(start);
+      start.addClickEventListener(()=> cc.director.runScene(new PlayScene()));
+
+      this.refresh();
+      return true;
+    },
+    refresh(){
+      this.goldLabel.setString(PROMPTS.goldLabel + state.gold);
+      this.bestLabel.setString(PROMPTS.bestLabel + state.best.toFixed(1) + ' m');
+      this.buttons.forEach(({k,item,btn})=>{
+        const lv = state.levels[k], c = levelCost(k);
+        item.setString(`${PART_NAMES[k]} Lv.${lv}  费用:${c}`);
+        btn.setEnabled(state.gold>=c);
+      });
+      applyAppearance(this.plane);
+    }
+  });
+
+  const PlayLayer = cc.LayerColor.extend({
+    ctor(){
+      this._super(cc.color(140,220,255,255));
+      this.size = cc.winSize;
+      this.distance = 0; this.alt = 24; this.speed = 8; this.gamma = 0.05; this.pitch = 0.08; this.aoa = 0.03;
+      this.engine = 1; this.stallTimer = 0; this.launchQuality = 0; this.airtime = 0;
+      this.launched = false; this.dragging = false;
+
+      this.hud = new cc.LabelTTF(`${PROMPTS.hudDistance}:0m\n${PROMPTS.hudSpeed}:0m/s\n${PROMPTS.hudHeading}:0°`, 'Arial', 22);
+      this.hud.setAnchorPoint(1,1); this.hud.setPosition(this.size.width-15, this.size.height-15); this.addChild(this.hud, 3);
+
+      this.stageLabel = new cc.LabelTTF('城市', 'Arial', 22); this.stageLabel.setAnchorPoint(0,1); this.stageLabel.setPosition(15,this.size.height-15); this.addChild(this.stageLabel,3);
+
+      this.ground = new cc.DrawNode();
+      this.ground.drawRect(cc.p(0,0), cc.p(this.size.width, this.size.height*0.22), cc.color(85,190,100,255),0,cc.color());
+      this.addChild(this.ground);
+
+      this.plane = makePlaneNode(1.2); applyAppearance(this.plane);
+      this.plane.setPosition(220, this.size.height*0.7); this.plane.setVisible(false); this.addChild(this.plane,2);
+
+      this.slingBase = new cc.DrawNode();
+      this.slingBase.drawCircle(cc.p(130,120), 80, 0, 40, false, 2, cc.color(255,255,255,220));
+      this.addChild(this.slingBase,2);
+
+      this.dragDot = new cc.DrawNode();
+      this.dragDot.drawDot(cc.p(130,120), 10, cc.color(255,90,90,255));
+      this.addChild(this.dragDot,3);
+
+      this.initInput();
+      this.scheduleUpdate();
+      return true;
+    },
+    getSceneParams(d){
+      if (d < 450) return {name:PROMPTS.stageCity, wind:0.2, dragMul:1.0, updraft:0.03};
+      if (d < 1000) return {name:PROMPTS.stageForest, wind:-0.18, dragMul:1.08, updraft:0.05};
+      return {name:PROMPTS.stageSea, wind:0.32, dragMul:1.16, updraft:-0.01};
+    },
+    initInput(){
+      let startP = null;
+      cc.eventManager.addListener({
+        event: cc.EventListener.TOUCH_ONE_BY_ONE,
+        swallowTouches: true,
+        onTouchBegan: (t)=>{
+          const p = t.getLocation();
+          if (!this.launched && cc.pDistance(p, cc.p(130,120)) < 100) { this.dragging = true; startP = p; return true; }
+          if (this.launched) { startP = p; return true; }
+          return false;
+        },
+        onTouchMoved: (t)=>{
+          const p=t.getLocation();
+          if (this.dragging && !this.launched) {
+            let v = cc.pSub(p, cc.p(130,120));
+            const len = cc.pLength(v), max=70;
+            if (len>max) v=cc.pMult(v,max/len);
+            this.dragVec = v;
+            this.dragDot.setPosition(v.x,v.y);
+          } else if (this.launched && startP) {
+            const d = cc.pSub(p,startP);
+            this.pitch = Math.max(-0.6, Math.min(0.62, this.pitch + (-d.y*0.0028 + d.x*0.0007)));
+            startP = p;
+          }
+        },
+        onTouchEnded: ()=>{
+          if (this.dragging && !this.launched) {
+            this.dragging=false;
+            const v=this.dragVec||cc.p(0,0), pull=Math.min(1,cc.pLength(v)/70);
+            const ang=Math.atan2(-v.y,-v.x||-1), power=(11+state.levels.slingshot*0.95)*(0.45+pull*0.85);
+            this.speed=Math.max(8,power*1.05); this.gamma=Math.min(0.66,Math.max(-0.18,Math.sin(ang)*0.6+0.08));
+            this.pitch=this.gamma*1.25; this.aoa=this.pitch-this.gamma; this.launchQuality=pull;
+            this.launched=true; this.startTs=Date.now(); this.plane.setVisible(true); this.dragDot.setPosition(0,0);
+          }
+        }
+      }, this);
+
+      this.keys = {};
+      cc.eventManager.addListener({event: cc.EventListener.KEYBOARD,
+        onKeyPressed:(k)=>this.keys[k]=1, onKeyReleased:(k)=>this.keys[k]=0}, this);
+    },
+    update(dt){
+      if (!this.launched) return;
+      const liftLv = (state.levels.leftWing + state.levels.rightWing)/2;
+      const stats = { lift:0.04 + liftLv*0.0038, stability:0.14+state.levels.tail*0.016, thrust:0.1+state.levels.propeller*0.026 };
+      const g=9.8, mass=1.2, rho=1.225, wingArea=1.0 + (state.levels.leftWing+state.levels.rightWing)*0.03;
+      const scene=this.getSceneParams(this.distance);
+      this.stageLabel.setString(scene.name);
+
+      const wasd=((this.keys[cc.KEY.w]?1:0)-(this.keys[cc.KEY.s]?1:0))+(((this.keys[cc.KEY.a]?1:0)-(this.keys[cc.KEY.d]?1:0))*0.35);
+      this.pitch += wasd*0.014; this.pitch += (-this.pitch)*stats.stability*0.012;
+      this.pitch = Math.max(-0.55,Math.min(0.58,this.pitch));
+
+      this.engine=Math.max(0.22,1-(Date.now()-this.startTs)/36000);
+      const thrustBase=(3.2+stats.thrust*26)*this.engine;
+      const thrustEff=Math.max(0.45,1-this.speed/58);
+      const climbPenalty=1+Math.max(0,Math.sin(this.gamma))*0.65;
+      const thrust=thrustBase*thrustEff/climbPenalty;
+
+      this.aoa=Math.max(-0.4,Math.min(0.46,this.pitch-this.gamma));
+      const stalledNow=this.aoa>0.3 && this.speed<9.5;
+      this.stallTimer=stalledNow?Math.min(2.5,this.stallTimer+dt):Math.max(0,this.stallTimer-dt*2.2);
+      const deepStall=this.stallTimer>0.65;
+      if (deepStall){ this.pitch-=0.02; this.gamma-=0.028; }
+
+      const stallFactor=deepStall?Math.max(0.08,1-this.stallTimer*1.25):1;
+      const cl=(0.22+3.4*this.aoa)*stallFactor;
+      const cd=0.03+0.34*cl*cl+(deepStall?0.12:0);
+      const q=0.5*rho*Math.max(0,this.speed)*Math.max(0,this.speed);
+      const lift=q*wingArea*cl*(0.72+stats.lift*3.6)+scene.updraft*this.speed;
+      const drag=q*wingArea*cd*scene.dragMul;
+
+      const accelAlong=(thrust-drag-mass*g*Math.sin(this.gamma)+scene.wind)/mass;
+      const accelNormal=(lift-mass*g*Math.cos(this.gamma))/Math.max(0.35,mass*this.speed);
+      this.speed=Math.max(1.6,this.speed+accelAlong*dt);
+      this.gamma=Math.max(-1.05,Math.min(0.78,this.gamma+accelNormal*dt));
+
+      const vx=this.speed*Math.cos(this.gamma), vy=this.speed*Math.sin(this.gamma);
+      this.distance=Math.max(0,this.distance+vx*dt*3.2);
+      this.alt += vy*dt*1.8;
+      this.airtime += dt;
+
+      const sy=this.size.height*0.72 - this.alt;
+      const sx=220 + Math.min(420,this.distance*0.2);
+      this.plane.setPosition(sx,sy); this.plane.setRotation(-this.pitch*57.3);
+
+      this.hud.setString(`${PROMPTS.hudDistance}:${this.distance.toFixed(1)} m\n${PROMPTS.hudSpeed}:${this.speed.toFixed(1)} m/s\n${PROMPTS.hudHeading}:${(this.gamma*57.3).toFixed(1)}°`);
+
+      if (sy <= this.size.height*0.22 + 6) {
+        this.finish();
+      }
+    },
+    finish(){
+      const base = Math.floor(this.distance/9 + (0.1+state.levels.propeller*0.026)*4);
+      const bonus = Math.floor(this.launchQuality*12) + Math.floor(this.airtime*0.8) + (this.distance>1000?12:this.distance>450?6:0);
+      const gained = base + bonus;
+      state.gold += gained; state.best = Math.max(state.best, this.distance); save();
+      cc.director.runScene(new ResultScene(this.distance, gained, bonus));
+    }
+  });
+
+  const ResultLayer = cc.LayerColor.extend({
+    ctor(distance, gained, bonus){
+      this._super(cc.color(190,240,255,255));
+      const s=cc.winSize;
+      const t = new cc.LabelTTF(PROMPTS.resultTitle, 'Arial', 40); t.setPosition(s.width/2,s.height-70); this.addChild(t);
+      const c = new cc.LabelTTF(`${PROMPTS.resultDistance}: ${distance.toFixed(1)} m\n${PROMPTS.resultBest}: ${state.best.toFixed(1)} m\n${PROMPTS.resultGold}: ${gained} 🪙\n${PROMPTS.resultBonus}: ${bonus} 🪙`, 'Arial', 28);
+      c.setPosition(s.width/2,s.height/2+20); this.addChild(c);
+      const back = new ccui.Button(); back.setTitleText(PROMPTS.backMain); back.setTitleFontSize(24); back.setScale9Enabled(true); back.setContentSize(cc.size(220,56));
+      back.setPosition(s.width/2,100); this.addChild(back); back.addClickEventListener(()=>cc.director.runScene(new MainScene()));
+      return true;
+    }
+  });
+
+  const MainScene = cc.Scene.extend({ onEnter(){ this._super(); this.addChild(new MainLayer()); }});
+  const PlayScene = cc.Scene.extend({ onEnter(){ this._super(); this.addChild(new PlayLayer()); }});
+  const ResultScene = function (d,g,b) { return cc.Scene.extend({ onEnter(){ this._super(); this.addChild(new ResultLayer(d,g,b)); }})(); };
+
+  load();
+  cc.game.onStart = function(){
+    cc.view.adjustViewPort(true);
+    cc.view.setDesignResolutionSize(1280, 720, cc.ResolutionPolicy.SHOW_ALL);
+    cc.view.resizeWithBrowserSize(true);
+    cc.director.runScene(new MainScene());
+  };
+  cc.game.run('gameCanvas');
+})();
+</script>
+</body>
+</html>
