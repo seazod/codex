@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import argparse
 import math
+from pathlib import Path
 from typing import List
 
 
@@ -115,11 +116,14 @@ class FlightSimulator:
 
 
 class Game:
-    def __init__(self) -> None:
+    def __init__(self, visualize: bool = False, plot_dir: str | None = None) -> None:
         self.plane = Plane()
         self.slingshot = Slingshot()
         self.coins = 0
         self.levels = self._create_levels()
+        self.visualize = visualize
+        self.plot_dir = Path(plot_dir) if plot_dir else None
+        self._trajectory_points: list[tuple[float, float]] = []
 
     def _create_levels(self) -> List[Level]:
         return [
@@ -189,6 +193,8 @@ class Game:
 
             attack_input = max(-1.0, min(1.0, (target_height - state.y) * 0.15))
             state = sim.step(state, attack_input)
+            if self.visualize:
+                self._trajectory_points.append((state.x, state.y))
 
             if not all(math.isfinite(v) for v in (state.x, state.y, state.vx, state.vy)):
                 print("数值发散，判定失败。")
@@ -196,11 +202,15 @@ class Game:
 
             if state.y <= 0:
                 print(f"坠地于 x={state.x:.1f}m")
+                if self.visualize:
+                    self._render_trajectory(level, success=False)
                 return False, gained
 
             for ob in level.obstacles:
                 if ob.collides(state.x, state.y):
                     print(f"撞上障碍物（x={ob.x_start}-{ob.x_end}m）")
+                    if self.visualize:
+                        self._render_trajectory(level, success=False)
                     return False, gained
 
             if state.x >= next_coin_mark:
@@ -214,20 +224,120 @@ class Game:
                 print(
                     f"通过第 {level.level_id} 关！用时 {state.t:.1f}s, 终点高度 {state.y:.1f}m"
                 )
+                if self.visualize:
+                    self._render_trajectory(level, success=True)
                 return True, gained
 
             if state.t > 35:
                 print("超时，判定失败。")
+                if self.visualize:
+                    self._render_trajectory(level, success=False)
                 return False, gained
+
+    def _render_trajectory(self, level: Level, success: bool) -> None:
+        if not self._trajectory_points:
+            return
+
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            self._render_ascii_trajectory(level, success)
+            return
+
+        xs = [p[0] for p in self._trajectory_points]
+        ys = [max(0.0, p[1]) for p in self._trajectory_points]
+        max_x = max(level.target_distance * 1.05, max(xs) + 10)
+        max_y = max([12.0, *ys, *(ob.clearance_height + 2 for ob in level.obstacles)])
+
+        fig, ax = plt.subplots(figsize=(10, 4.5))
+        ax.plot(xs, ys, color="#1f77b4", linewidth=2, label="飞行轨迹")
+        ax.fill_between([0, max_x], [0, 0], color="#4d4d4d", alpha=0.12)
+
+        for ob in level.obstacles:
+            ax.axvspan(ob.x_start, ob.x_end, ymin=0, ymax=min(1.0, ob.clearance_height / max_y), color="#d62728", alpha=0.22)
+            ax.text((ob.x_start + ob.x_end) / 2, ob.clearance_height + 0.2, "障碍", ha="center", va="bottom", fontsize=9)
+
+        ax.axvline(level.target_distance, color="#2ca02c", linestyle="--", linewidth=1.8, label="目标线")
+        ax.set_xlim(0, max_x)
+        ax.set_ylim(0, max_y + 2)
+        ax.set_title(f"第 {level.level_id} 关轨迹（{'通关' if success else '失败'}）")
+        ax.set_xlabel("水平距离 x (m)")
+        ax.set_ylabel("高度 y (m)")
+        ax.grid(alpha=0.2)
+        ax.legend(loc="upper right")
+        fig.tight_layout()
+
+        if self.plot_dir:
+            self.plot_dir.mkdir(parents=True, exist_ok=True)
+            output_path = self.plot_dir / f"level_{level.level_id}.png"
+            fig.savefig(output_path, dpi=150)
+            print(f"已保存可视化图：{output_path}")
+        else:
+            plt.show()
+
+        plt.close(fig)
+        self._trajectory_points.clear()
+
+    def _render_ascii_trajectory(self, level: Level, success: bool) -> None:
+        width = 72
+        height = 20
+        xs = [p[0] for p in self._trajectory_points]
+        ys = [max(0.0, p[1]) for p in self._trajectory_points]
+        max_x = max(level.target_distance * 1.05, max(xs) + 1)
+        max_y = max([10.0, *ys, *(ob.clearance_height + 2 for ob in level.obstacles)])
+
+        grid = [[" " for _ in range(width)] for _ in range(height)]
+
+        def x_to_col(x: float) -> int:
+            return max(0, min(width - 1, int(x / max_x * (width - 1))))
+
+        def y_to_row(y: float) -> int:
+            return max(0, min(height - 1, height - 1 - int(y / max_y * (height - 1))))
+
+        for x, y in self._trajectory_points:
+            grid[y_to_row(y)][x_to_col(x)] = "*"
+
+        for ob in level.obstacles:
+            c1 = x_to_col(ob.x_start)
+            c2 = x_to_col(ob.x_end)
+            r_top = y_to_row(ob.clearance_height)
+            for c in range(min(c1, c2), max(c1, c2) + 1):
+                for r in range(r_top, height):
+                    if grid[r][c] == " ":
+                        grid[r][c] = "#"
+
+        goal_col = x_to_col(level.target_distance)
+        for r in range(height):
+            if grid[r][goal_col] == " ":
+                grid[r][goal_col] = "|"
+
+        title = f"第 {level.level_id} 关轨迹（{'通关' if success else '失败'}）[ASCII]"
+        chart = [title, "图例：*=轨迹  #=障碍物  |=目标线", ""]
+        chart.extend("".join(row) for row in grid)
+        chart.append("_" * width)
+        chart.append(f"x: 0m{' ' * (width - 12)}{max_x:.0f}m")
+
+        text = "\n".join(chart)
+        print(text)
+
+        if self.plot_dir:
+            self.plot_dir.mkdir(parents=True, exist_ok=True)
+            output_path = self.plot_dir / f"level_{level.level_id}.txt"
+            output_path.write_text(text, encoding="utf-8")
+            print(f"已保存 ASCII 可视化：{output_path}")
+
+        self._trajectory_points.clear()
 
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="小飞机弹弓闯关模拟")
     parser.add_argument("--demo", action="store_true", help="演示模式（无需交互）")
+    parser.add_argument("--visualize", action="store_true", help="显示每关飞行轨迹图")
+    parser.add_argument("--plot-dir", type=str, default=None, help="可选：将轨迹图保存到指定目录（用于无图形界面环境）")
     args = parser.parse_args()
 
-    game = Game()
+    game = Game(visualize=args.visualize, plot_dir=args.plot_dir)
     game.run(demo=args.demo)
 
 
