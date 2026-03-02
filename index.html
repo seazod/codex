@@ -25,8 +25,29 @@
   }
 
   const KEY = 'plane_sling_save_cocos_v1';
+
+  const PROMPTS = {
+    gameTitle: '✈️ Cocos 飞机弹射高手',
+    upgradeBtn: '升级',
+    startBtn: '开始飞行',
+    goldLabel: '金币：',
+    bestLabel: '历史最远：',
+    hudDistance: '距离',
+    hudSpeed: '速度',
+    hudHeading: '航向',
+    stageCity: '城市',
+    stageForest: '森林',
+    stageSea: '海面',
+    resultTitle: '本局结算',
+    resultDistance: '本次距离',
+    resultBest: '历史最远',
+    resultGold: '获得金币',
+    resultBonus: '奖励加成',
+    backMain: '返回主界面',
+    partNames: { leftWing:'左翼', rightWing:'右翼', tail:'尾翼', propeller:'螺旋桨', slingshot:'弹弓' }
+  };
   const PARTS = ['leftWing', 'rightWing', 'tail', 'propeller', 'slingshot'];
-  const PART_NAMES = { leftWing:'左翼', rightWing:'右翼', tail:'尾翼', propeller:'螺旋桨', slingshot:'弹弓' };
+  const PART_NAMES = PROMPTS.partNames;
 
   const state = {
     gold: 120,
@@ -78,7 +99,7 @@
     ctor(){
       this._super(cc.color(170,230,255,255));
       const size = cc.winSize;
-      const title = new cc.LabelTTF('✈️ Cocos 飞机弹射高手', 'Arial', 36); title.setPosition(size.width/2, size.height-50); this.addChild(title);
+      const title = new cc.LabelTTF(PROMPTS.gameTitle, 'Arial', 36); title.setPosition(size.width/2, size.height-50); this.addChild(title);
       this.goldLabel = new cc.LabelTTF('', 'Arial', 24); this.goldLabel.setAnchorPoint(0,0.5); this.goldLabel.setPosition(20,size.height-90); this.addChild(this.goldLabel);
       this.bestLabel = new cc.LabelTTF('', 'Arial', 24); this.bestLabel.setAnchorPoint(1,0.5); this.bestLabel.setPosition(size.width-20,size.height-90); this.addChild(this.bestLabel);
 
@@ -89,7 +110,7 @@
       PARTS.forEach((k)=>{
         const item = new cc.LabelTTF('', 'Arial', 22); item.setAnchorPoint(0,0.5); item.setPosition(30,y); this.addChild(item);
         const btn = new ccui.Button();
-        btn.setTitleText('升级'); btn.setTitleFontSize(20); btn.setScale9Enabled(true); btn.setContentSize(cc.size(120,42));
+        btn.setTitleText(PROMPTS.upgradeBtn); btn.setTitleFontSize(20); btn.setScale9Enabled(true); btn.setContentSize(cc.size(120,42));
         btn.setPosition(size.width-90,y); this.addChild(btn);
         btn.addClickEventListener(()=>{
           const c = levelCost(k); if (state.gold < c) return;
@@ -100,7 +121,7 @@
       });
 
       const start = new ccui.Button();
-      start.setTitleText('开始飞行'); start.setTitleFontSize(24); start.setScale9Enabled(true); start.setContentSize(cc.size(180,56));
+      start.setTitleText(PROMPTS.startBtn); start.setTitleFontSize(24); start.setScale9Enabled(true); start.setContentSize(cc.size(180,56));
       start.setPosition(size.width/2, 70); this.addChild(start);
       start.addClickEventListener(()=> cc.director.runScene(new PlayScene()));
 
@@ -108,8 +129,8 @@
       return true;
     },
     refresh(){
-      this.goldLabel.setString('金币：'+state.gold);
-      this.bestLabel.setString('历史最远：'+state.best.toFixed(1)+' m');
+      this.goldLabel.setString(PROMPTS.goldLabel + state.gold);
+      this.bestLabel.setString(PROMPTS.bestLabel + state.best.toFixed(1) + ' m');
       this.buttons.forEach(({k,item,btn})=>{
         const lv = state.levels[k], c = levelCost(k);
         item.setString(`${PART_NAMES[k]} Lv.${lv}  费用:${c}`);
@@ -127,7 +148,7 @@
       this.engine = 1; this.stallTimer = 0; this.launchQuality = 0; this.airtime = 0;
       this.launched = false; this.dragging = false;
 
-      this.hud = new cc.LabelTTF('距离:0m\n速度:0m/s\n航向:0°', 'Arial', 22);
+      this.hud = new cc.LabelTTF(`${PROMPTS.hudDistance}:0m\n${PROMPTS.hudSpeed}:0m/s\n${PROMPTS.hudHeading}:0°`, 'Arial', 22);
       this.hud.setAnchorPoint(1,1); this.hud.setPosition(this.size.width-15, this.size.height-15); this.addChild(this.hud, 3);
 
       this.stageLabel = new cc.LabelTTF('城市', 'Arial', 22); this.stageLabel.setAnchorPoint(0,1); this.stageLabel.setPosition(15,this.size.height-15); this.addChild(this.stageLabel,3);
@@ -152,9 +173,9 @@
       return true;
     },
     getSceneParams(d){
-      if (d < 450) return {name:'城市', wind:0.2, dragMul:1.0, updraft:0.03};
-      if (d < 1000) return {name:'森林', wind:-0.18, dragMul:1.08, updraft:0.05};
-      return {name:'海面', wind:0.32, dragMul:1.16, updraft:-0.01};
+      if (d < 450) return {name:PROMPTS.stageCity, wind:0.2, dragMul:1.0, updraft:0.03};
+      if (d < 1000) return {name:PROMPTS.stageForest, wind:-0.18, dragMul:1.08, updraft:0.05};
+      return {name:PROMPTS.stageSea, wind:0.32, dragMul:1.16, updraft:-0.01};
     },
     initInput(){
       let startP = null;
@@ -242,7 +263,7 @@
       const sx=220 + Math.min(420,this.distance*0.2);
       this.plane.setPosition(sx,sy); this.plane.setRotation(-this.pitch*57.3);
 
-      this.hud.setString(`距离:${this.distance.toFixed(1)} m\n速度:${this.speed.toFixed(1)} m/s\n航向:${(this.gamma*57.3).toFixed(1)}°`);
+      this.hud.setString(`${PROMPTS.hudDistance}:${this.distance.toFixed(1)} m\n${PROMPTS.hudSpeed}:${this.speed.toFixed(1)} m/s\n${PROMPTS.hudHeading}:${(this.gamma*57.3).toFixed(1)}°`);
 
       if (sy <= this.size.height*0.22 + 6) {
         this.finish();
@@ -261,10 +282,10 @@
     ctor(distance, gained, bonus){
       this._super(cc.color(190,240,255,255));
       const s=cc.winSize;
-      const t = new cc.LabelTTF('本局结算', 'Arial', 40); t.setPosition(s.width/2,s.height-70); this.addChild(t);
-      const c = new cc.LabelTTF(`本次距离: ${distance.toFixed(1)} m\n历史最远: ${state.best.toFixed(1)} m\n获得金币: ${gained} 🪙\n奖励加成: ${bonus} 🪙`, 'Arial', 28);
+      const t = new cc.LabelTTF(PROMPTS.resultTitle, 'Arial', 40); t.setPosition(s.width/2,s.height-70); this.addChild(t);
+      const c = new cc.LabelTTF(`${PROMPTS.resultDistance}: ${distance.toFixed(1)} m\n${PROMPTS.resultBest}: ${state.best.toFixed(1)} m\n${PROMPTS.resultGold}: ${gained} 🪙\n${PROMPTS.resultBonus}: ${bonus} 🪙`, 'Arial', 28);
       c.setPosition(s.width/2,s.height/2+20); this.addChild(c);
-      const back = new ccui.Button(); back.setTitleText('返回主界面'); back.setTitleFontSize(24); back.setScale9Enabled(true); back.setContentSize(cc.size(220,56));
+      const back = new ccui.Button(); back.setTitleText(PROMPTS.backMain); back.setTitleFontSize(24); back.setScale9Enabled(true); back.setContentSize(cc.size(220,56));
       back.setPosition(s.width/2,100); this.addChild(back); back.addClickEventListener(()=>cc.director.runScene(new MainScene()));
       return true;
     }
