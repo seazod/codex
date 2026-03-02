@@ -22,6 +22,8 @@ python3 plane_game.py
 python3 plane_game.py --demo
 ```
 
+> `--demo` 不依赖 tkinter；即使未安装 Tk（例如 `_tkinter` 缺失）也能运行。
+
 ## macOS 常见问题
 
 如果执行后“没有反应”，请按下面排查：

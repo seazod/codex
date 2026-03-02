@@ -7,14 +7,23 @@ from dataclasses import dataclass, field
 import argparse
 import math
 import sys
-import tkinter as tk
-from tkinter import messagebox
 from typing import List
 
 RHO_AIR = 1.225
 G = 9.81
 DT = 0.04
 WORLD_HEIGHT = 35.0
+
+
+def load_tk() -> tuple[object, object]:
+    try:
+        import tkinter as tk  # type: ignore
+        from tkinter import messagebox  # type: ignore
+        return tk, messagebox
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "未检测到 tkinter（_tkinter）。请安装带 Tk 支持的 Python，或使用 --demo 模式。"
+        ) from exc
 
 
 @dataclass
@@ -110,7 +119,8 @@ class FlightSimulator:
 
 class PlaneGameGUI:
     def __init__(self) -> None:
-        self.root = tk.Tk()
+        self.tk, self.messagebox = load_tk()
+        self.root = self.tk.Tk()
         self.root.title("小飞机弹弓闯关模拟")
         self.root.geometry("1000x680")
 
@@ -144,38 +154,38 @@ class PlaneGameGUI:
         ]
 
     def _build_ui(self) -> None:
-        top = tk.Frame(self.root)
-        top.pack(fill=tk.X, padx=8, pady=6)
+        top = self.tk.Frame(self.root)
+        top.pack(fill=self.tk.X, padx=8, pady=6)
 
-        self.info_var = tk.StringVar()
-        tk.Label(top, textvariable=self.info_var, font=("Arial", 12, "bold")).pack(side=tk.LEFT)
+        self.info_var = self.tk.StringVar()
+        self.tk.Label(top, textvariable=self.info_var, font=("Arial", 12, "bold")).pack(side=self.tk.LEFT)
 
-        self.canvas = tk.Canvas(self.root, width=self.canvas_w, height=self.canvas_h, bg="#dff3ff")
+        self.canvas = self.tk.Canvas(self.root, width=self.canvas_w, height=self.canvas_h, bg="#dff3ff")
         self.canvas.pack(padx=8, pady=4)
 
-        ctrl = tk.Frame(self.root)
-        ctrl.pack(fill=tk.X, padx=8, pady=6)
+        ctrl = self.tk.Frame(self.root)
+        ctrl.pack(fill=self.tk.X, padx=8, pady=6)
 
-        self.angle_scale = tk.Scale(ctrl, from_=10, to=50, orient=tk.HORIZONTAL, label="发射角度(度)")
+        self.angle_scale = self.tk.Scale(ctrl, from_=10, to=50, orient=self.tk.HORIZONTAL, label="发射角度(度)")
         self.angle_scale.set(26)
-        self.angle_scale.pack(side=tk.LEFT, padx=6)
+        self.angle_scale.pack(side=self.tk.LEFT, padx=6)
 
-        self.power_scale = tk.Scale(ctrl, from_=10, to=100, orient=tk.HORIZONTAL, label="弹弓力度(%)")
+        self.power_scale = self.tk.Scale(ctrl, from_=10, to=100, orient=self.tk.HORIZONTAL, label="弹弓力度(%)")
         self.power_scale.set(85)
-        self.power_scale.pack(side=tk.LEFT, padx=6)
+        self.power_scale.pack(side=self.tk.LEFT, padx=6)
 
-        self.attack_scale = tk.Scale(ctrl, from_=-100, to=100, orient=tk.HORIZONTAL, label="俯仰控制", length=200)
+        self.attack_scale = self.tk.Scale(ctrl, from_=-100, to=100, orient=self.tk.HORIZONTAL, label="俯仰控制", length=200)
         self.attack_scale.set(0)
-        self.attack_scale.pack(side=tk.LEFT, padx=6)
+        self.attack_scale.pack(side=self.tk.LEFT, padx=6)
 
-        self.launch_btn = tk.Button(ctrl, text="发射", command=self.launch)
-        self.launch_btn.pack(side=tk.LEFT, padx=8)
+        self.launch_btn = self.tk.Button(ctrl, text="发射", command=self.launch)
+        self.launch_btn.pack(side=self.tk.LEFT, padx=8)
 
-        tk.Button(ctrl, text="升级飞机(120)", command=self.upgrade_plane).pack(side=tk.LEFT, padx=4)
-        tk.Button(ctrl, text="升级弹弓(90)", command=self.upgrade_slingshot).pack(side=tk.LEFT, padx=4)
+        self.tk.Button(ctrl, text="升级飞机(120)", command=self.upgrade_plane).pack(side=self.tk.LEFT, padx=4)
+        self.tk.Button(ctrl, text="升级弹弓(90)", command=self.upgrade_slingshot).pack(side=self.tk.LEFT, padx=4)
 
-        self.level_hint_var = tk.StringVar()
-        tk.Label(self.root, textvariable=self.level_hint_var, fg="#333").pack(anchor="w", padx=10)
+        self.level_hint_var = self.tk.StringVar()
+        self.tk.Label(self.root, textvariable=self.level_hint_var, fg="#333").pack(anchor="w", padx=10)
 
     def _load_level(self, idx: int) -> None:
         self.current_level_idx = idx
@@ -211,7 +221,7 @@ class PlaneGameGUI:
 
     def upgrade_plane(self) -> None:
         if self.coins < 120:
-            messagebox.showinfo("提示", "金币不足")
+            self.messagebox.showinfo("提示", "金币不足")
             return
         self.coins -= 120
         self.plane.upgrade()
@@ -219,7 +229,7 @@ class PlaneGameGUI:
 
     def upgrade_slingshot(self) -> None:
         if self.coins < 90:
-            messagebox.showinfo("提示", "金币不足")
+            self.messagebox.showinfo("提示", "金币不足")
             return
         self.coins -= 90
         self.slingshot.upgrade()
@@ -270,13 +280,13 @@ class PlaneGameGUI:
 
         if passed:
             if self.current_level_idx + 1 < len(self.levels):
-                messagebox.showinfo("过关", reason)
+                self.messagebox.showinfo("过关", reason)
                 self._load_level(self.current_level_idx + 1)
             else:
-                messagebox.showinfo("通关", f"{reason}\n恭喜你完成全部关卡！")
+                self.messagebox.showinfo("通关", f"{reason}\n恭喜你完成全部关卡！")
                 self._load_level(0)
         else:
-            messagebox.showwarning("失败", f"{reason}\n本关金币 +{self.gained_this_level}")
+            self.messagebox.showwarning("失败", f"{reason}\n本关金币 +{self.gained_this_level}")
 
     def _render(self) -> None:
         self.canvas.delete("all")
@@ -351,7 +361,11 @@ def main() -> None:
     try:
         app = PlaneGameGUI()
         app.run()
-    except tk.TclError as exc:
+    except RuntimeError as exc:
+        print(f"GUI 启动失败: {exc}", file=sys.stderr)
+        print("你可以改用: python3 plane_game.py --demo", file=sys.stderr)
+        raise
+    except Exception as exc:
         print("GUI 启动失败。请检查 macOS 图形权限或 Tk 支持。", file=sys.stderr)
         print(f"详细错误: {exc}", file=sys.stderr)
         print("你也可以先运行: python3 plane_game.py --demo", file=sys.stderr)
