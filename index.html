@@ -316,20 +316,20 @@
     }
     .flight-fuselage {
       position: absolute;
-      left: 20px;
-      top: 18px;
-      width: 78px;
-      height: 18px;
-      border-radius: 16px 24px 20px 14px;
+      left: 16px;
+      top: 20px;
+      width: 86px;
+      height: 14px;
+      border-radius: 10px 18px 18px 10px;
       background: #ffd166;
     }
     .flight-cockpit {
       position: absolute;
-      left: 50px;
+      left: 62px;
       top: 12px;
-      width: 26px;
+      width: 24px;
       height: 10px;
-      border-radius: 8px;
+      border-radius: 8px 8px 4px 4px;
       background: #7bdff2;
     }
     .flight-wing-main,
@@ -340,11 +340,11 @@
       position: absolute;
       border-radius: 12px;
     }
-    .flight-wing-main { left: 36px; top: 10px; width: 64px; height: 12px; background: #4cc9f0; transform: rotate(-14deg); }
-    .flight-wing-sub { left: 36px; top: 30px; width: 64px; height: 12px; background: #4cc9f0; transform: rotate(14deg); }
-    .flight-tail { left: 90px; top: 6px; width: 12px; height: 18px; background: #6c5ce7; }
-    .flight-tail-wing { left: 86px; top: 34px; width: 24px; height: 8px; background: #6c5ce7; }
-    .flight-prop { left: 8px; top: 14px; width: 8px; height: 26px; background: #adb5bd; animation: spin .15s linear infinite; }
+    .flight-wing-main { left: 34px; top: 18px; width: 38px; height: 20px; background: #4cc9f0; transform: skew(-10deg); }
+    .flight-wing-sub { left: 34px; top: 27px; width: 38px; height: 7px; background: #3fb4d8; transform: skew(-10deg); }
+    .flight-tail { left: 12px; top: 8px; width: 9px; height: 16px; background: #6c5ce7; }
+    .flight-tail-wing { left: 10px; top: 24px; width: 16px; height: 6px; background: #6c5ce7; }
+    .flight-prop { left: 98px; top: 10px; width: 8px; height: 32px; background: #adb5bd; animation: spin .12s linear infinite; }
 
     .tip {
       width: min(960px,100%);
@@ -399,7 +399,7 @@
     <div class="game-world" id="world">
       <div id="horizon" class="horizon city"></div>
       <div class="ground-scroll" id="groundScroll"></div>
-      <div class="hud">距离：<span id="distanceText">0</span> m</div>
+      <div class="hud">距离：<span id="distanceText">0</span> m<br/>速度：<span id="speedText">0</span> m/s</div>
       <div id="flightPlane" class="flight-plane hidden">
         <div class="flight-fuselage"></div>
         <div class="flight-cockpit"></div>
@@ -417,7 +417,7 @@
         </div>
       </div>
     </div>
-    <div class="tip">操作：按住拖拽弹弓发射；飞行中可滑动或用 WASD 微调姿态（W抬头/S低头/A左调/D右调），避免失速并注意落地。</div>
+    <div class="tip">操作：按住拖拽弹弓发射；飞行中可滑动或用 WASD 微调姿态（W抬头/S低头/A左调/D右调），实时关注速度，避免失速并注意落地。</div>
   </section>
 
   <!-- 结算界面 -->
@@ -496,6 +496,7 @@
     const flightTailWing = document.getElementById("flightTailWing");
     const flightProp = document.getElementById("flightProp");
     const distanceText = document.getElementById("distanceText");
+    const speedText = document.getElementById("speedText");
     const horizon = document.getElementById("horizon");
     const groundScroll = document.getElementById("groundScroll");
 
@@ -625,6 +626,7 @@
       flightPlane.classList.add("hidden");
       launchDot.style.transform = "translateX(-50%) translate(0px,0px)";
       distanceText.textContent = "0.0";
+      speedText.textContent = "0.0";
       horizon.className = "horizon city";
       groundScroll.style.animationDuration = "1s";
       cancelAnimationFrame(round.rafId);
@@ -742,7 +744,7 @@
       const dt = 1 / 60;
       const stats = calcStats();
 
-      // 简化空气动力学模型：AoA 决定升力与诱导阻力，速度与迎风阻力相关
+      // 简化空气动力学模型：升力+空气阻力+重力共同影响速度与高度
       const g = 9.8;
       const mass = 1.2;
       const rho = 1.225;
@@ -782,8 +784,13 @@
       const vx = round.speed * Math.cos(round.gamma);
       const vy = round.speed * Math.sin(round.gamma);
 
+      // 显式叠加：重力让高度更容易下降，空气阻力持续消耗速度
+      const gravitySink = g * 0.045;
+      const dragLoss = Math.max(0.0, drag * 0.00028);
+      round.speed = Math.max(1.5, round.speed - dragLoss * dt * 60);
+
       round.x += vx * dt * 3.2;
-      round.alt += vy * dt * 1.8;
+      round.alt += (vy - gravitySink) * dt * 1.8;
       round.distance = Math.max(0, round.x);
 
       // 机体渲染位置与倾斜
@@ -799,6 +806,7 @@
       groundScroll.style.animationDuration = `${speedScale.toFixed(2)}s`;
 
       distanceText.textContent = round.distance.toFixed(1);
+      speedText.textContent = round.speed.toFixed(1);
 
       // 失败条件：失速或落地
       const stalled = round.stallTimer > 0.7;
