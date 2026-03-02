@@ -765,11 +765,18 @@
       round.aoa = Math.max(-0.4, Math.min(0.46, round.aoa));
 
       const stalledNow = round.aoa > 0.3 && round.speed < 9.5;
-      round.stallTimer = stalledNow ? round.stallTimer + dt : Math.max(0, round.stallTimer - dt * 2.2);
+      round.stallTimer = stalledNow ? Math.min(2.5, round.stallTimer + dt) : Math.max(0, round.stallTimer - dt * 2.2);
+      const deepStall = round.stallTimer > 0.65;
 
-      const stallFactor = stalledNow ? Math.max(0.35, 1 - round.stallTimer * 1.7) : 1;
+      // 失速后升力衰减且机头下沉，不会立刻结束，而是进入坠落态直到接地
+      if (deepStall) {
+        round.pitch -= 0.02;
+        round.gamma -= 0.028;
+      }
+
+      const stallFactor = deepStall ? Math.max(0.08, 1 - round.stallTimer * 1.25) : 1;
       const cl = (0.22 + 3.4 * round.aoa) * stallFactor;
-      const cd = 0.03 + 0.34 * cl * cl + (stalledNow ? 0.08 : 0);
+      const cd = 0.03 + 0.34 * cl * cl + (deepStall ? 0.12 : 0);
       const q = 0.5 * rho * Math.max(0, round.speed) * Math.max(0, round.speed);
       const lift = q * wingArea * cl * (0.72 + stats.lift * 3.6);
       const drag = q * wingArea * cd;
@@ -784,13 +791,9 @@
       const vx = round.speed * Math.cos(round.gamma);
       const vy = round.speed * Math.sin(round.gamma);
 
-      // 显式叠加：重力让高度更容易下降，空气阻力持续消耗速度
-      const gravitySink = g * 0.045;
-      const dragLoss = Math.max(0.0, drag * 0.00028);
-      round.speed = Math.max(1.5, round.speed - dragLoss * dt * 60);
-
+      // 空气阻力和重力已通过 accelAlong/accelNormal 进入速度与航迹角
       round.x += vx * dt * 3.2;
-      round.alt += (vy - gravitySink) * dt * 1.8;
+      round.alt += vy * dt * 1.8;
       round.distance = Math.max(0, round.x);
 
       // 机体渲染位置与倾斜
@@ -808,10 +811,9 @@
       distanceText.textContent = round.distance.toFixed(1);
       speedText.textContent = round.speed.toFixed(1);
 
-      // 失败条件：失速或落地
-      const stalled = round.stallTimer > 0.7;
+      // 失败条件：只在坠毁/落地时结束（失速将转化为下坠过程）
       const hitGround = sy > world.clientHeight - 12 || round.alt <= 0;
-      if (stalled || hitGround || round.speed < 1.9) {
+      if (hitGround) {
         endRound();
         return;
       }
