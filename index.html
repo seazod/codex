@@ -310,6 +310,9 @@
       height: 52px;
       transform-origin: center;
       filter: drop-shadow(-8px 6px 0 rgba(0,0,0,.16));
+      border: 2px solid rgba(255,255,255,.35);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.08);
     }
     .flight-fuselage {
       position: absolute;
@@ -337,10 +340,10 @@
       position: absolute;
       border-radius: 12px;
     }
-    .flight-wing-main { left: 44px; top: 14px; width: 54px; height: 10px; background: #4cc9f0; transform: rotate(-12deg); }
-    .flight-wing-sub { left: 44px; top: 30px; width: 54px; height: 10px; background: #4cc9f0; transform: rotate(12deg); }
-    .flight-tail { left: 88px; top: 8px; width: 10px; height: 16px; background: #6c5ce7; }
-    .flight-tail-wing { left: 88px; top: 32px; width: 18px; height: 7px; background: #6c5ce7; }
+    .flight-wing-main { left: 36px; top: 10px; width: 64px; height: 12px; background: #4cc9f0; transform: rotate(-14deg); }
+    .flight-wing-sub { left: 36px; top: 30px; width: 64px; height: 12px; background: #4cc9f0; transform: rotate(14deg); }
+    .flight-tail { left: 90px; top: 6px; width: 12px; height: 18px; background: #6c5ce7; }
+    .flight-tail-wing { left: 86px; top: 34px; width: 24px; height: 8px; background: #6c5ce7; }
     .flight-prop { left: 8px; top: 14px; width: 8px; height: 26px; background: #adb5bd; animation: spin .15s linear infinite; }
 
     .tip {
@@ -414,7 +417,7 @@
         </div>
       </div>
     </div>
-    <div class="tip">操作：按住拖拽弹弓发射；飞行中滑动（上下/左右）微调姿态，避免角度过大失速。</div>
+    <div class="tip">操作：按住拖拽弹弓发射；飞行中可滑动或用 WASD 微调姿态（W抬头/S低头/A左调/D右调），避免失速并注意落地。</div>
   </section>
 
   <!-- 结算界面 -->
@@ -589,9 +592,12 @@
       gamma: 0,
       aoa: 0,
       pitch: 0,
-      // 滑动控制
+      // 滑动/键盘控制
       lastTouchX: 0,
       lastTouchY: 0,
+      keyPitchInput: 0,
+      engine: 1,
+      stallTimer: 0,
       // 分数
       distance: 0,
       startTs: 0,
@@ -613,6 +619,7 @@
         launched: false, dragging: false, dragX: 0, dragY: 0,
         x: 0, alt: 20, speed: 0, gamma: -0.04, aoa: 0.04, pitch: 0,
         lastTouchX: 0, lastTouchY: 0,
+        keyPitchInput: 0, engine: 1, stallTimer: 0,
         distance: 0, startTs: 0
       });
       flightPlane.classList.add("hidden");
@@ -703,6 +710,24 @@
       round.lastTouchY = 0;
     });
 
+    const pressedKeys = new Set();
+
+    document.addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+      if (["w", "a", "s", "d"].includes(k)) {
+        pressedKeys.add(k);
+        e.preventDefault();
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      const k = e.key.toLowerCase();
+      if (pressedKeys.has(k)) {
+        pressedKeys.delete(k);
+        e.preventDefault();
+      }
+    });
+
     function updateSceneByDistance(d) {
       if (d < 450) {
         horizon.className = "horizon city";
@@ -719,27 +744,40 @@
 
       // 简化空气动力学模型：AoA 决定升力与诱导阻力，速度与迎风阻力相关
       const g = 9.8;
-      const mass = 1.0;
+      const mass = 1.2;
       const rho = 1.225;
-      const wingArea = 0.95 + ((state.levels.leftWing + state.levels.rightWing) * 0.03);
-      const thrustForce = 6.4 + stats.thrust * 34;
+      const wingArea = 1.0 + ((state.levels.leftWing + state.levels.rightWing) * 0.03);
 
-      round.pitch += (-round.pitch) * stats.stability * 0.01;
+      const wasdInput = (pressedKeys.has("w") ? 1 : 0) - (pressedKeys.has("s") ? 1 : 0)
+        + ((pressedKeys.has("a") ? 1 : 0) - (pressedKeys.has("d") ? 1 : 0)) * 0.35;
+      round.keyPitchInput = wasdInput;
+
+      round.pitch += round.keyPitchInput * 0.014;
+      round.pitch += (-round.pitch) * stats.stability * 0.012;
+      round.pitch = Math.max(-0.55, Math.min(0.58, round.pitch));
+
+      round.engine = Math.max(0.22, 1 - (ts - round.startTs) / 36000);
+      const thrustForce = (3.2 + stats.thrust * 26) * round.engine;
+
       round.aoa = round.pitch - round.gamma;
-      round.aoa = Math.max(-0.35, Math.min(0.42, round.aoa));
+      round.aoa = Math.max(-0.4, Math.min(0.46, round.aoa));
 
-      const cl = 0.24 + 3.9 * round.aoa;
-      const cd = 0.025 + 0.32 * cl * cl;
+      const stalledNow = round.aoa > 0.3 && round.speed < 9.5;
+      round.stallTimer = stalledNow ? round.stallTimer + dt : Math.max(0, round.stallTimer - dt * 2.2);
+
+      const stallFactor = stalledNow ? Math.max(0.35, 1 - round.stallTimer * 1.7) : 1;
+      const cl = (0.22 + 3.4 * round.aoa) * stallFactor;
+      const cd = 0.03 + 0.34 * cl * cl + (stalledNow ? 0.08 : 0);
       const q = 0.5 * rho * Math.max(0, round.speed) * Math.max(0, round.speed);
-      const lift = q * wingArea * cl * (0.7 + stats.lift * 4);
+      const lift = q * wingArea * cl * (0.72 + stats.lift * 3.6);
       const drag = q * wingArea * cd;
 
       const accelAlong = (thrustForce - drag - mass * g * Math.sin(round.gamma)) / mass;
-      const accelNormal = (lift - mass * g * Math.cos(round.gamma)) / Math.max(0.3, mass * round.speed);
+      const accelNormal = (lift - mass * g * Math.cos(round.gamma)) / Math.max(0.35, mass * round.speed);
 
-      round.speed = Math.max(2.4, round.speed + accelAlong * dt);
+      round.speed = Math.max(1.6, round.speed + accelAlong * dt);
       round.gamma += accelNormal * dt;
-      round.gamma = Math.max(-0.9, Math.min(0.8, round.gamma));
+      round.gamma = Math.max(-1.05, Math.min(0.78, round.gamma));
 
       const vx = round.speed * Math.cos(round.gamma);
       const vy = round.speed * Math.sin(round.gamma);
@@ -763,9 +801,9 @@
       distanceText.textContent = round.distance.toFixed(1);
 
       // 失败条件：失速或落地
-      const stalled = round.aoa > 0.33 && round.speed < 9.8;
-      const hitGround = sy > world.clientHeight - 12;
-      if (stalled || hitGround || round.speed < 2.6) {
+      const stalled = round.stallTimer > 0.7;
+      const hitGround = sy > world.clientHeight - 12 || round.alt <= 0;
+      if (stalled || hitGround || round.speed < 1.9) {
         endRound();
         return;
       }
